@@ -1,0 +1,82 @@
+from sqlalchemy import Column, String, Float, Text, Boolean, ForeignKey, JSON, Integer
+from sqlalchemy.orm import relationship
+from .base import Base, TimestampMixin, generate_uuid
+
+
+class TissueType:
+    GRANULATION = "granulation"    # Red - healthy healing
+    SLOUGH = "slough"              # Yellow - fibrinous, needs debridement
+    ESCHAR = "eschar"              # Black/necrotic - dead tissue
+    EPITHELIAL = "epithelial"      # Pink - new skin
+    HYPERGRANULATION = "hypergranulation"
+
+
+class Scan(Base, TimestampMixin):
+    __tablename__ = "scans"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    wound_id = Column(String, ForeignKey("wounds.id"), nullable=False, index=True)
+    scanned_by = Column(String(100), nullable=False)  # User ID
+
+    # 3D Measurements (photogrammetry/LiDAR)
+    length_cm = Column(Float, nullable=True)
+    width_cm = Column(Float, nullable=True)
+    depth_cm = Column(Float, nullable=True)
+    area_cm2 = Column(Float, nullable=True)
+    volume_cm3 = Column(Float, nullable=True)
+    measurement_error_pct = Column(Float, nullable=True)  # Must be <5%
+
+    # AI tissue segmentation results (percentages 0-100)
+    tissue_granulation_pct = Column(Float, nullable=True)
+    tissue_slough_pct = Column(Float, nullable=True)
+    tissue_eschar_pct = Column(Float, nullable=True)
+    tissue_epithelial_pct = Column(Float, nullable=True)
+
+    # Exudate assessment
+    exudate_level = Column(String(20), nullable=True)  # none, low, moderate, high
+    exudate_type = Column(String(50), nullable=True)   # serous, serosanguineous, purulent
+
+    # Periwound condition
+    periwound_condition = Column(String(200), nullable=True)
+
+    # Image storage (zero-footprint - stored in secure cloud)
+    image_url = Column(String(500), nullable=True)  # Encrypted cloud URL
+    image_hash = Column(String(64), nullable=True)  # SHA-256 for integrity
+
+    # Sub-epidermal analysis
+    sub_epidermal_risk = Column(Boolean, default=False)
+    temperature_delta = Column(Float, nullable=True)  # Thermal sensor data
+
+    # Treatment recommendation
+    treatment_recommendation = Column(JSON, nullable=True)
+    dressing_recommendation = Column(String(200), nullable=True)
+
+    # Clinical notes (voice-to-text)
+    clinical_notes = Column(Text, nullable=True)
+
+    # Calibration
+    calibration_marker_detected = Column(Boolean, default=False)
+    capture_angle_degrees = Column(Float, nullable=True)  # Should be ~90
+
+    # Healing progress
+    par_from_baseline = Column(Float, nullable=True)  # Percentage Area Reduction from first scan
+
+    wound = relationship("Wound", back_populates="scans")
+    audit_logs = relationship("AuditLog", back_populates="scan", cascade="all, delete-orphan")
+
+
+class AuditLog(Base, TimestampMixin):
+    """HIPAA-compliant audit trail for all scan actions."""
+    __tablename__ = "audit_logs"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    scan_id = Column(String, ForeignKey("scans.id"), nullable=True, index=True)
+    user_id = Column(String(100), nullable=False)
+    action = Column(String(50), nullable=False)  # create, view, update, delete
+    resource_type = Column(String(50), nullable=False)
+    resource_id = Column(String, nullable=False)
+    ip_address = Column(String(45), nullable=True)
+    user_agent = Column(String(500), nullable=True)
+    changes = Column(JSON, nullable=True)
+
+    scan = relationship("Scan", back_populates="audit_logs")
