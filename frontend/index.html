@@ -1,0 +1,1276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NoPressure - Wound Management Platform</title>
+    <style>
+        /* Include ALL styles inline */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f0f4f8;
+            color: #2d3748;
+        }
+        /* Navigation */
+        nav {
+            background: #1a365d;
+            color: white;
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            height: 64px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        nav .logo {
+            font-size: 20px;
+            font-weight: 700;
+            color: #90cdf4;
+            margin-right: 32px;
+        }
+        nav .logo span { color: white; }
+        nav button {
+            background: none;
+            border: none;
+            color: #bee3f8;
+            font-size: 14px;
+            padding: 8px 16px;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: background 0.2s;
+        }
+        nav button:hover, nav button.active {
+            background: rgba(255,255,255,0.15);
+            color: white;
+        }
+        nav .nav-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+        nav .offline-badge {
+            background: #f6ad55;
+            color: #744210;
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-weight: 600;
+        }
+        nav .online-badge {
+            background: #68d391;
+            color: #22543d;
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-weight: 600;
+        }
+        /* Page sections */
+        .page { display: none; padding: 24px; max-width: 1200px; margin: 0 auto; }
+        .page.active { display: block; }
+        /* Cards */
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+        }
+        .card h2 { font-size: 18px; font-weight: 600; color: #1a365d; margin-bottom: 16px; }
+        .card h3 { font-size: 15px; font-weight: 600; color: #2d3748; margin-bottom: 12px; }
+        /* Grid */
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+        @media (max-width: 768px) {
+            .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+        }
+        /* Stat cards */
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+        }
+        .stat-card .value { font-size: 36px; font-weight: 700; color: #1a365d; }
+        .stat-card .label { font-size: 13px; color: #718096; margin-top: 4px; }
+        .stat-card .icon { font-size: 28px; margin-bottom: 8px; }
+        /* Badges */
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .badge-green { background: #c6f6d5; color: #22543d; }
+        .badge-yellow { background: #fefcbf; color: #744210; }
+        .badge-red { background: #fed7d7; color: #742a2a; }
+        .badge-orange { background: #feebc8; color: #7b341e; }
+        .badge-blue { background: #bee3f8; color: #2a4365; }
+        /* Buttons */
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .btn-primary { background: #3182ce; color: white; }
+        .btn-primary:hover { background: #2b6cb0; }
+        .btn-success { background: #38a169; color: white; }
+        .btn-success:hover { background: #2f855a; }
+        .btn-danger { background: #e53e3e; color: white; }
+        .btn-danger:hover { background: #c53030; }
+        .btn-outline { background: white; color: #3182ce; border: 2px solid #3182ce; }
+        .btn-outline:hover { background: #ebf8ff; }
+        /* Forms */
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; font-size: 13px; font-weight: 600; color: #4a5568; margin-bottom: 6px; }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border 0.2s;
+            background: #f7fafc;
+        }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: #3182ce;
+            background: white;
+        }
+        /* Progress bars */
+        .progress-bar {
+            height: 10px;
+            background: #e2e8f0;
+            border-radius: 5px;
+            overflow: hidden;
+            margin: 6px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            border-radius: 5px;
+            transition: width 0.5s ease;
+        }
+        /* Tables */
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 10px 14px; font-size: 12px; font-weight: 600; color: #718096; background: #f7fafc; text-transform: uppercase; letter-spacing: 0.05em; }
+        td { padding: 12px 14px; font-size: 14px; border-top: 1px solid #e2e8f0; }
+        tr:hover td { background: #f7fafc; }
+        /* Capture interface */
+        .capture-container {
+            position: relative;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            aspect-ratio: 4/3;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .capture-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .capture-crosshair {
+            width: 200px;
+            height: 200px;
+            border: 2px dashed rgba(255,255,255,0.6);
+            border-radius: 50%;
+            position: relative;
+        }
+        .capture-crosshair::before, .capture-crosshair::after {
+            content: '';
+            position: absolute;
+            background: rgba(255,255,255,0.6);
+        }
+        .capture-crosshair::before { width: 1px; height: 100%; left: 50%; }
+        .capture-crosshair::after { height: 1px; width: 100%; top: 50%; }
+        .capture-guide {
+            color: white;
+            font-size: 13px;
+            margin-top: 16px;
+            text-align: center;
+            padding: 8px 16px;
+            background: rgba(0,0,0,0.5);
+            border-radius: 20px;
+        }
+        .angle-indicator {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: rgba(0,0,0,0.6);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+        }
+        .angle-indicator.good { color: #68d391; }
+        .angle-indicator.bad { color: #fc8181; }
+        /* Body map */
+        .body-map-container {
+            display: flex;
+            justify-content: center;
+            position: relative;
+            padding: 20px;
+        }
+        .body-map-svg {
+            width: 200px;
+            cursor: pointer;
+        }
+        .body-map-legend {
+            margin-top: 16px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        /* Alerts */
+        .alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            font-size: 14px;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        .alert-warning { background: #fefcbf; border-left: 4px solid #d69e2e; color: #744210; }
+        .alert-danger { background: #fed7d7; border-left: 4px solid #c53030; color: #742a2a; }
+        .alert-success { background: #c6f6d5; border-left: 4px solid #276749; color: #22543d; }
+        .alert-info { background: #bee3f8; border-left: 4px solid #2b6cb0; color: #2a4365; }
+        /* Timeline */
+        .timeline { position: relative; padding-left: 24px; }
+        .timeline::before { content: ''; position: absolute; left: 8px; top: 0; bottom: 0; width: 2px; background: #e2e8f0; }
+        .timeline-item { position: relative; margin-bottom: 20px; }
+        .timeline-item::before { content: ''; position: absolute; left: -20px; top: 4px; width: 12px; height: 12px; border-radius: 50%; background: #3182ce; border: 2px solid white; box-shadow: 0 0 0 2px #3182ce; }
+        .timeline-date { font-size: 12px; color: #718096; margin-bottom: 4px; }
+        .timeline-content { font-size: 14px; }
+        /* Healing chart */
+        .chart-container { position: relative; height: 200px; }
+        canvas { width: 100% !important; }
+        /* Tissue legend */
+        .tissue-legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 12px; }
+        .tissue-item { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+        .tissue-dot { width: 14px; height: 14px; border-radius: 50%; }
+        /* Voice button */
+        .voice-btn {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: #3182ce;
+            border: none;
+            color: white;
+            font-size: 22px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            box-shadow: 0 4px 12px rgba(49,130,206,0.4);
+        }
+        .voice-btn:hover { background: #2b6cb0; transform: scale(1.05); }
+        .voice-btn.recording { background: #e53e3e; animation: pulse 1s infinite; }
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 4px 12px rgba(229,62,62,0.4); }
+            50% { box-shadow: 0 4px 24px rgba(229,62,62,0.7); }
+        }
+        /* Stalled wound alert */
+        .stalled-alert {
+            background: linear-gradient(135deg, #fed7d7, #feb2b2);
+            border: 2px solid #fc8181;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        /* Upload zone */
+        .upload-zone {
+            border: 2px dashed #90cdf4;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            background: #ebf8ff;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .upload-zone:hover { border-color: #3182ce; background: #bee3f8; }
+        .upload-zone input { display: none; }
+        .upload-zone .upload-icon { font-size: 48px; margin-bottom: 12px; }
+        /* Tabs */
+        .tabs { display: flex; gap: 4px; background: #edf2f7; padding: 4px; border-radius: 10px; margin-bottom: 20px; }
+        .tab { flex: 1; padding: 8px 16px; border: none; background: none; cursor: pointer; border-radius: 8px; font-size: 14px; color: #718096; transition: all 0.2s; }
+        .tab.active { background: white; color: #1a365d; font-weight: 600; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+        /* Modal */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+        .modal-overlay.open { display: flex; }
+        .modal { background: white; border-radius: 16px; padding: 28px; max-width: 480px; width: 90%; max-height: 90vh; overflow-y: auto; }
+        .modal h2 { font-size: 20px; font-weight: 700; margin-bottom: 20px; color: #1a365d; }
+        .modal-close { float: right; background: none; border: none; font-size: 20px; cursor: pointer; color: #718096; }
+        /* Treatment recommendation */
+        .treatment-card {
+            background: linear-gradient(135deg, #ebf8ff, #bee3f8);
+            border: 1.5px solid #90cdf4;
+            border-radius: 12px;
+            padding: 16px;
+        }
+        .treatment-card .dressing { font-size: 18px; font-weight: 700; color: #1a365d; }
+        .treatment-card .interventions { margin-top: 10px; }
+        .treatment-card .intervention-item { 
+            display: flex; align-items: flex-start; gap: 8px; 
+            padding: 6px 0; border-bottom: 1px solid rgba(144,205,244,0.4);
+            font-size: 13px;
+        }
+        .treatment-card .intervention-item:last-child { border-bottom: none; }
+        /* Heading styles */
+        h1 { font-size: 24px; font-weight: 700; color: #1a365d; margin-bottom: 8px; }
+        .page-subtitle { font-size: 14px; color: #718096; margin-bottom: 24px; }
+        /* Responsive video area */
+        .video-placeholder {
+            background: #1a202c;
+            color: #a0aec0;
+            font-size: 14px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            min-height: 280px;
+        }
+        .video-placeholder .camera-icon { font-size: 56px; }
+        /* Dressing tags */
+        .dressing-chip {
+            display: inline-block;
+            padding: 4px 12px;
+            background: #e9d8fd;
+            color: #553c9a;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin: 3px;
+        }
+    </style>
+</head>
+<body>
+
+<nav>
+    <div class="logo">No<span>Pressure</span></div>
+    <button class="active" onclick="showPage('dashboard')">📊 Dashboard</button>
+    <button onclick="showPage('capture')">📷 Scan Wound</button>
+    <button onclick="showPage('patients')">👥 Patients</button>
+    <button onclick="showPage('analytics')">📈 Analytics</button>
+    <button onclick="showPage('admin')">⚙️ Admin</button>
+    <div class="nav-right">
+        <span id="connectivity-badge" class="online-badge">● Online</span>
+        <button onclick="showPage('capture')" style="background:#3182ce;color:white;border-radius:8px;">+ New Scan</button>
+    </div>
+</nav>
+
+<!-- DASHBOARD PAGE -->
+<div id="page-dashboard" class="page active">
+    <h1>Facility Command Center</h1>
+    <p class="page-subtitle">Comprehensive wound burden overview — Hadassah Medical Center</p>
+
+    <div class="grid-4" style="margin-bottom:24px;">
+        <div class="stat-card">
+            <div class="icon">🩹</div>
+            <div class="value" id="stat-active">42</div>
+            <div class="label">Active Wounds</div>
+        </div>
+        <div class="stat-card" style="border-left:4px solid #fc8181;">
+            <div class="icon">⚠️</div>
+            <div class="value" style="color:#c53030;" id="stat-stalled">7</div>
+            <div class="label">Stalled Wounds</div>
+        </div>
+        <div class="stat-card" style="border-left:4px solid #68d391;">
+            <div class="icon">✅</div>
+            <div class="value" style="color:#276749;" id="stat-healed">18</div>
+            <div class="label">Healed This Month</div>
+        </div>
+        <div class="stat-card">
+            <div class="icon">📅</div>
+            <div class="value" id="stat-avg">23</div>
+            <div class="label">Avg Healing Days</div>
+        </div>
+    </div>
+
+    <!-- Alerts -->
+    <div class="stalled-alert">
+        <strong>🚨 Stalled Wound Alerts (7)</strong>
+        <p style="margin-top:8px;font-size:13px;">The following wounds have not reduced by 20% in the past 28 days and require clinical review:</p>
+        <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;">
+            <span class="badge badge-red">Mrs. Cohen - L Heel (Day 42)</span>
+            <span class="badge badge-red">Mr. Levi - Sacral PU (Day 35)</span>
+            <span class="badge badge-red">Mrs. Shapiro - R Foot DFU (Day 56)</span>
+            <span class="badge badge-orange">Mr. Ben-David - Shin VLU (Day 29)</span>
+        </div>
+    </div>
+
+    <div class="grid-2">
+        <div class="card">
+            <h2>Wound Distribution by Type</h2>
+            <canvas id="etiologyChart" height="200"></canvas>
+        </div>
+        <div class="card">
+            <h2>Recent Activity</h2>
+            <div class="timeline">
+                <div class="timeline-item">
+                    <div class="timeline-date">Today, 09:42</div>
+                    <div class="timeline-content"><strong>New scan</strong> — Mr. Katz, Diabetic Foot Ulcer<br><small style="color:#718096;">Nurse Sarah Cohen • Ward 4B</small></div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-date">Today, 08:15</div>
+                    <div class="timeline-content"><strong>Stalled alert</strong> — Mrs. Levi, Stage 3 Pressure Ulcer<br><small style="color:#718096;">PAR: 12% after 35 days</small></div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-date">Yesterday, 16:30</div>
+                    <div class="timeline-content"><strong>Wound healed</strong> — Mr. Friedman, Surgical Site<br><small style="color:#718096;">Total healing time: 18 days</small></div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-date">Yesterday, 14:20</div>
+                    <div class="timeline-content"><strong>Treatment change</strong> — Mrs. Cohen, Sacral Wound<br><small style="color:#718096;">Switched to Alginate dressing (high exudate)</small></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>All Patients — Active Wound Summary</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Patient</th>
+                    <th>Wound Type</th>
+                    <th>Location</th>
+                    <th>Duration</th>
+                    <th>PAR (4wk)</th>
+                    <th>Status</th>
+                    <th>Last Scan</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Mrs. Sarah Cohen</strong><br><small style="color:#718096;">MRN: 10045521</small></td>
+                    <td>Pressure Ulcer</td>
+                    <td>Left Heel</td>
+                    <td>42 days</td>
+                    <td><span style="color:#c53030;">12%</span></td>
+                    <td><span class="badge badge-red">Stalled</span></td>
+                    <td>Today</td>
+                    <td><button class="btn btn-primary" style="font-size:12px;padding:6px 12px;" onclick="showPage('capture')">Scan</button></td>
+                </tr>
+                <tr>
+                    <td><strong>Mr. David Levi</strong><br><small style="color:#718096;">MRN: 10038827</small></td>
+                    <td>Diabetic Foot Ulcer</td>
+                    <td>Right Toe</td>
+                    <td>21 days</td>
+                    <td><span style="color:#276749;">35%</span></td>
+                    <td><span class="badge badge-green">Healing</span></td>
+                    <td>2 days ago</td>
+                    <td><button class="btn btn-primary" style="font-size:12px;padding:6px 12px;" onclick="showPage('capture')">Scan</button></td>
+                </tr>
+                <tr>
+                    <td><strong>Mrs. Ruth Ben-David</strong><br><small style="color:#718096;">MRN: 10051209</small></td>
+                    <td>Venous Leg Ulcer</td>
+                    <td>Left Shin</td>
+                    <td>15 days</td>
+                    <td><span style="color:#276749;">28%</span></td>
+                    <td><span class="badge badge-green">Healing</span></td>
+                    <td>Yesterday</td>
+                    <td><button class="btn btn-primary" style="font-size:12px;padding:6px 12px;" onclick="showPage('capture')">Scan</button></td>
+                </tr>
+                <tr>
+                    <td><strong>Mr. Yosef Katz</strong><br><small style="color:#718096;">MRN: 10029834</small></td>
+                    <td>Surgical Site</td>
+                    <td>Abdomen</td>
+                    <td>8 days</td>
+                    <td>—</td>
+                    <td><span class="badge badge-blue">Active</span></td>
+                    <td>Today</td>
+                    <td><button class="btn btn-primary" style="font-size:12px;padding:6px 12px;" onclick="showPage('capture')">Scan</button></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- CAPTURE PAGE -->
+<div id="page-capture" class="page">
+    <h1>Guided Wound Capture</h1>
+    <p class="page-subtitle">AI-powered scan with automated tissue segmentation and 3D measurement</p>
+
+    <div class="grid-2">
+        <div>
+            <!-- Camera guidance -->
+            <div class="card">
+                <h2>📷 Camera Guidance</h2>
+                <div class="capture-container">
+                    <div class="video-placeholder">
+                        <div class="camera-icon">📷</div>
+                        <div>Point camera at wound</div>
+                        <div style="font-size:12px;">Keep wound centered in circle</div>
+                    </div>
+                    <div class="capture-overlay">
+                        <div class="capture-crosshair"></div>
+                        <div class="capture-guide">🎯 Align wound within the circle · Hold steady</div>
+                    </div>
+                    <div class="angle-indicator good" id="angle-indicator">📐 90° ✓</div>
+                </div>
+                <div style="margin-top:16px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                        <span style="font-size:13px;font-weight:600;">Capture Quality Checks</span>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:8px;">
+                        <div style="display:flex;align-items:center;gap:8px;font-size:13px;">
+                            <span id="check-angle" style="color:#38a169;">✅</span> Camera angle: 90° (perpendicular)
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px;font-size:13px;">
+                            <span id="check-calibration" style="color:#38a169;">✅</span> Calibration marker detected
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px;font-size:13px;">
+                            <span id="check-focus" style="color:#38a169;">✅</span> Image focus: Sharp
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px;font-size:13px;">
+                            <span id="check-lighting" style="color:#f6ad55;">⚡</span> Lighting: Suboptimal (move to brighter area)
+                        </div>
+                    </div>
+                </div>
+                <div style="margin-top:16px;text-align:center;">
+                    <label class="upload-zone" for="imageUpload">
+                        <input type="file" id="imageUpload" accept="image/*" onchange="handleImageUpload(event)">
+                        <div class="upload-icon">📤</div>
+                        <div style="font-weight:600;color:#2b6cb0;">Upload Wound Image</div>
+                        <div style="font-size:12px;color:#718096;margin-top:4px;">Tap to select image • Never saved to gallery</div>
+                    </label>
+                    <div id="image-preview" style="display:none;margin-top:12px;">
+                        <img id="preview-img" style="max-width:100%;border-radius:8px;max-height:200px;" alt="Wound preview">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Patient & wound info -->
+            <div class="card">
+                <h2>Patient & Wound Information</h2>
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label>Patient</label>
+                        <select id="scan-patient">
+                            <option value="">Select patient...</option>
+                            <option value="p1">Mrs. Sarah Cohen (MRN: 10045521)</option>
+                            <option value="p2">Mr. David Levi (MRN: 10038827)</option>
+                            <option value="p3">Mrs. Ruth Ben-David (MRN: 10051209)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Wound Type (Etiology)</label>
+                        <select id="scan-etiology">
+                            <option value="pressure_ulcer">Pressure Ulcer</option>
+                            <option value="diabetic_foot_ulcer">Diabetic Foot Ulcer</option>
+                            <option value="venous_leg_ulcer">Venous Leg Ulcer</option>
+                            <option value="surgical_site_infection">Surgical Site Infection</option>
+                            <option value="arterial_ulcer">Arterial Ulcer</option>
+                            <option value="traumatic">Traumatic Wound</option>
+                            <option value="burn">Burn</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Body Location</label>
+                        <select id="scan-location">
+                            <option value="sacrum">Sacrum</option>
+                            <option value="left_heel">Left Heel</option>
+                            <option value="right_heel">Right Heel</option>
+                            <option value="left_foot">Left Foot</option>
+                            <option value="right_foot">Right Foot</option>
+                            <option value="left_shin">Left Shin</option>
+                            <option value="right_shin">Right Shin</option>
+                            <option value="abdomen">Abdomen</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Scanned By</label>
+                        <input type="text" id="scan-nurse" value="Nurse Sarah Cohen" placeholder="Clinician name">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Clinical Notes (Voice-to-Text)</label>
+                    <div style="display:flex;gap:12px;align-items:flex-start;">
+                        <textarea id="scan-notes" rows="3" placeholder="Type clinical observations or use microphone for voice-to-text..."></textarea>
+                        <button class="voice-btn" id="voice-btn" onclick="toggleVoiceRecording()" title="Voice-to-Text">🎤</button>
+                    </div>
+                    <div id="voice-status" style="font-size:12px;color:#718096;margin-top:4px;"></div>
+                </div>
+                <button class="btn btn-success" style="width:100%;padding:14px;" onclick="runAIScan()">
+                    🔬 Run AI Analysis
+                </button>
+            </div>
+        </div>
+
+        <div>
+            <!-- AI Results -->
+            <div class="card" id="ai-results-card" style="display:none;">
+                <h2>🤖 AI Analysis Results</h2>
+
+                <div class="grid-2" style="margin-bottom:16px;">
+                    <div style="background:#f7fafc;border-radius:8px;padding:12px;">
+                        <div style="font-size:12px;color:#718096;font-weight:600;">LENGTH</div>
+                        <div style="font-size:22px;font-weight:700;color:#1a365d;" id="res-length">3.2 cm</div>
+                    </div>
+                    <div style="background:#f7fafc;border-radius:8px;padding:12px;">
+                        <div style="font-size:12px;color:#718096;font-weight:600;">WIDTH</div>
+                        <div style="font-size:22px;font-weight:700;color:#1a365d;" id="res-width">2.1 cm</div>
+                    </div>
+                    <div style="background:#f7fafc;border-radius:8px;padding:12px;">
+                        <div style="font-size:12px;color:#718096;font-weight:600;">AREA</div>
+                        <div style="font-size:22px;font-weight:700;color:#1a365d;" id="res-area">5.3 cm²</div>
+                    </div>
+                    <div style="background:#f7fafc;border-radius:8px;padding:12px;">
+                        <div style="font-size:12px;color:#718096;font-weight:600;">DEPTH</div>
+                        <div style="font-size:22px;font-weight:700;color:#1a365d;" id="res-depth">0.4 cm</div>
+                    </div>
+                </div>
+
+                <h3>Tissue Composition (AI Segmentation)</h3>
+                <div id="tissue-bars">
+                    <div>
+                        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px;">
+                            <span>🔴 Granulation (Healthy)</span><span id="pct-granulation">60%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="bar-granulation" style="width:60%;background:#fc8181;"></div>
+                        </div>
+                    </div>
+                    <div style="margin-top:8px;">
+                        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px;">
+                            <span>🟡 Slough (Fibrinous)</span><span id="pct-slough">25%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="bar-slough" style="width:25%;background:#f6e05e;"></div>
+                        </div>
+                    </div>
+                    <div style="margin-top:8px;">
+                        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px;">
+                            <span>⚫ Eschar (Necrotic)</span><span id="pct-eschar">10%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="bar-eschar" style="width:10%;background:#4a5568;"></div>
+                        </div>
+                    </div>
+                    <div style="margin-top:8px;">
+                        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px;">
+                            <span>🩷 Epithelial (New Skin)</span><span id="pct-epithelial">5%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="bar-epithelial" style="width:5%;background:#fc8181;opacity:0.5;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-top:16px;">
+                    <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                        <div style="flex:1;min-width:120px;background:#f7fafc;border-radius:8px;padding:10px;">
+                            <div style="font-size:11px;color:#718096;font-weight:600;">EXUDATE</div>
+                            <div style="font-size:15px;font-weight:600;" id="res-exudate">Moderate / Serous</div>
+                        </div>
+                        <div style="flex:1;min-width:120px;background:#f7fafc;border-radius:8px;padding:10px;">
+                            <div style="font-size:11px;color:#718096;font-weight:600;">SUB-EPIDERMAL RISK</div>
+                            <div style="font-size:15px;font-weight:600;" id="res-risk">Low</div>
+                        </div>
+                        <div style="flex:1;min-width:120px;background:#f7fafc;border-radius:8px;padding:10px;">
+                            <div style="font-size:11px;color:#718096;font-weight:600;">MEASUREMENT ERROR</div>
+                            <div style="font-size:15px;font-weight:600;color:#276749;">2.5% ✓</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="sub-epidermal-alert" style="display:none;margin-top:12px;" class="alert alert-warning">
+                    ⚠️ <div><strong>Sub-Epidermal Risk Detected</strong><br>Persistent redness or temperature change detected. Early Stage 1 pressure injury possible. Initiate prevention protocol.</div>
+                </div>
+
+                <div style="margin-top:16px;">
+                    <h3>Treatment Recommendation</h3>
+                    <div class="treatment-card">
+                        <div style="font-size:12px;color:#2b6cb0;font-weight:600;text-transform:uppercase;">Primary Dressing</div>
+                        <div class="dressing" id="res-dressing">Foam Dressing with Superabsorbent Layer</div>
+                        <div class="interventions" id="res-interventions">
+                            <div class="intervention-item">✓ High exudate detected; recommend Alginate dressing</div>
+                            <div class="intervention-item">✓ Debridement of fibrinous tissue required</div>
+                            <div class="intervention-item">✓ Compression therapy: 40mmHg four-layer bandaging</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-top:16px;display:flex;gap:10px;">
+                    <button class="btn btn-primary" style="flex:1;" onclick="saveScan()">💾 Save Scan</button>
+                    <button class="btn btn-outline" style="flex:1;" onclick="exportPDF()">📄 Export PDF / EHR</button>
+                </div>
+            </div>
+
+            <!-- Body Map -->
+            <div class="card">
+                <h2>📍 Body Map — Pin Wound Location</h2>
+                <div class="body-map-container">
+                    <svg class="body-map-svg" viewBox="0 0 100 220" onclick="handleBodyMapClick(event)">
+                        <!-- Head -->
+                        <ellipse cx="50" cy="15" rx="14" ry="16" fill="#fbd38d" stroke="#e2e8f0" stroke-width="1.5"/>
+                        <!-- Neck -->
+                        <rect x="44" y="29" width="12" height="10" fill="#fbd38d" stroke="#e2e8f0" stroke-width="1"/>
+                        <!-- Torso -->
+                        <rect x="28" y="38" width="44" height="55" rx="6" fill="#fbd38d" stroke="#e2e8f0" stroke-width="1.5"/>
+                        <!-- Left arm -->
+                        <rect x="10" y="40" width="18" height="55" rx="7" fill="#fbd38d" stroke="#e2e8f0" stroke-width="1.5"/>
+                        <!-- Right arm -->
+                        <rect x="72" y="40" width="18" height="55" rx="7" fill="#fbd38d" stroke="#e2e8f0" stroke-width="1.5"/>
+                        <!-- Left leg -->
+                        <rect x="28" y="96" width="19" height="80" rx="7" fill="#fbd38d" stroke="#e2e8f0" stroke-width="1.5"/>
+                        <!-- Right leg -->
+                        <rect x="53" y="96" width="19" height="80" rx="7" fill="#fbd38d" stroke="#e2e8f0" stroke-width="1.5"/>
+                        <!-- Left foot -->
+                        <ellipse cx="37" cy="184" rx="10" ry="6" fill="#fbd38d" stroke="#e2e8f0" stroke-width="1"/>
+                        <!-- Right foot -->
+                        <ellipse cx="62" cy="184" rx="10" ry="6" fill="#fbd38d" stroke="#e2e8f0" stroke-width="1"/>
+                        <!-- Labels -->
+                        <text x="50" y="60" text-anchor="middle" fill="#718096" font-size="6">Torso</text>
+                        <text x="19" y="65" text-anchor="middle" fill="#718096" font-size="5">L Arm</text>
+                        <text x="81" y="65" text-anchor="middle" fill="#718096" font-size="5">R Arm</text>
+                        <text x="37" y="140" text-anchor="middle" fill="#718096" font-size="5">L Leg</text>
+                        <text x="62" y="140" text-anchor="middle" fill="#718096" font-size="5">R Leg</text>
+                        <!-- Wound pins -->
+                        <circle id="pin-1" cx="37" cy="178" r="5" fill="#e53e3e" stroke="white" stroke-width="1.5" style="display:none"/>
+                        <circle id="pin-2" cx="62" cy="178" r="5" fill="#e53e3e" stroke="white" stroke-width="1.5" style="display:none"/>
+                        <circle id="active-pin" cx="0" cy="0" r="6" fill="#e53e3e" stroke="white" stroke-width="2" opacity="0.9" style="display:none"/>
+                    </svg>
+                </div>
+                <p style="font-size:12px;color:#718096;text-align:center;">Click on the body to pin wound location</p>
+                <div id="body-map-pins" style="margin-top:12px;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- PATIENTS PAGE -->
+<div id="page-patients" class="page">
+    <h1>Patient Management</h1>
+    <p class="page-subtitle">Manage patient records and wound histories</p>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:16px;">
+        <button class="btn btn-primary" onclick="document.getElementById('add-patient-modal').classList.add('open')">+ Add Patient</button>
+    </div>
+    <div class="card">
+        <table>
+            <thead>
+                <tr>
+                    <th>Patient Name</th>
+                    <th>MRN</th>
+                    <th>Active Wounds</th>
+                    <th>Facility</th>
+                    <th>Last Activity</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Mrs. Sarah Cohen</strong></td>
+                    <td>10045521</td>
+                    <td><span class="badge badge-red">2 (1 stalled)</span></td>
+                    <td>Ward 4B</td>
+                    <td>Today</td>
+                    <td>
+                        <button class="btn btn-outline" style="font-size:12px;padding:5px 10px;" onclick="showPage('analytics')">View History</button>
+                        <button class="btn btn-primary" style="font-size:12px;padding:5px 10px;margin-left:6px;" onclick="showPage('capture')">New Scan</button>
+                    </td>
+                </tr>
+                <tr>
+                    <td><strong>Mr. David Levi</strong></td>
+                    <td>10038827</td>
+                    <td><span class="badge badge-green">1 (healing)</span></td>
+                    <td>Ward 2A</td>
+                    <td>2 days ago</td>
+                    <td>
+                        <button class="btn btn-outline" style="font-size:12px;padding:5px 10px;" onclick="showPage('analytics')">View History</button>
+                        <button class="btn btn-primary" style="font-size:12px;padding:5px 10px;margin-left:6px;" onclick="showPage('capture')">New Scan</button>
+                    </td>
+                </tr>
+                <tr>
+                    <td><strong>Mrs. Ruth Ben-David</strong></td>
+                    <td>10051209</td>
+                    <td><span class="badge badge-green">1 (healing)</span></td>
+                    <td>Outpatient Clinic</td>
+                    <td>Yesterday</td>
+                    <td>
+                        <button class="btn btn-outline" style="font-size:12px;padding:5px 10px;" onclick="showPage('analytics')">View History</button>
+                        <button class="btn btn-primary" style="font-size:12px;padding:5px 10px;margin-left:6px;" onclick="showPage('capture')">New Scan</button>
+                    </td>
+                </tr>
+                <tr>
+                    <td><strong>Mr. Yosef Katz</strong></td>
+                    <td>10029834</td>
+                    <td><span class="badge badge-blue">1 (active)</span></td>
+                    <td>Surgical Ward</td>
+                    <td>Today</td>
+                    <td>
+                        <button class="btn btn-outline" style="font-size:12px;padding:5px 10px;" onclick="showPage('analytics')">View History</button>
+                        <button class="btn btn-primary" style="font-size:12px;padding:5px 10px;margin-left:6px;" onclick="showPage('capture')">New Scan</button>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ANALYTICS PAGE -->
+<div id="page-analytics" class="page">
+    <h1>Healing Trend Analytics</h1>
+    <p class="page-subtitle">PAR tracking, time-lapse comparisons, and predictive healing projections</p>
+
+    <div class="tabs">
+        <button class="tab active" onclick="switchTab(this,'tab-trend')">📈 Healing Trend</button>
+        <button class="tab" onclick="switchTab(this,'tab-comparison')">🔍 Side-by-Side</button>
+        <button class="tab" onclick="switchTab(this,'tab-timelapse')">🎞️ Time-Lapse</button>
+    </div>
+
+    <div id="tab-trend">
+        <div class="grid-2">
+            <div class="card">
+                <h2>Select Patient & Wound</h2>
+                <div class="form-group">
+                    <label>Patient</label>
+                    <select onchange="updateAnalytics()">
+                        <option>Mrs. Sarah Cohen — Pressure Ulcer (Left Heel)</option>
+                        <option>Mr. David Levi — Diabetic Foot Ulcer</option>
+                        <option>Mrs. Ruth Ben-David — Venous Leg Ulcer</option>
+                    </select>
+                </div>
+                <div style="background:#f7fafc;border-radius:10px;padding:16px;margin-top:8px;">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
+                        <span style="font-size:13px;color:#718096;">Baseline Area:</span>
+                        <strong>8.4 cm²</strong>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
+                        <span style="font-size:13px;color:#718096;">Current Area:</span>
+                        <strong>7.4 cm²</strong>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
+                        <span style="font-size:13px;color:#718096;">PAR (4 weeks):</span>
+                        <strong style="color:#c53030;">12.0% ⚠️</strong>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
+                        <span style="font-size:13px;color:#718096;">Days Elapsed:</span>
+                        <strong>42 days</strong>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;">
+                        <span style="font-size:13px;color:#718096;">Projection:</span>
+                        <strong>~240 days (stalled)</strong>
+                    </div>
+                    <div class="alert alert-danger" style="margin-top:12px;">
+                        🚨 <div><strong>Stalled Wound Alert</strong><br>Wound has not reduced by 20% in 28 days. Clinical review required. Consider biopsy, NPWT, or advanced therapy.</div>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <h2>Wound Area Over Time</h2>
+                <canvas id="healingChart" height="220"></canvas>
+                <div style="display:flex;gap:16px;margin-top:8px;font-size:12px;">
+                    <span>📉 Area trend</span>
+                    <span style="color:#fc8181;">— Stall threshold (20% reduction)</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="tab-comparison" style="display:none;">
+        <div class="card">
+            <h2>Side-by-Side Wound Comparison</h2>
+            <div class="grid-2">
+                <div>
+                    <h3>Day 1 — Baseline</h3>
+                    <div style="background:#e2e8f0;border-radius:10px;height:200px;display:flex;align-items:center;justify-content:center;color:#718096;font-size:13px;">
+                        📷 Baseline scan image<br><small>Area: 8.4 cm² · Granulation: 30%</small>
+                    </div>
+                    <div style="margin-top:12px;font-size:13px;">
+                        <div>Length: 3.8 cm · Width: 2.8 cm</div>
+                        <div>Tissue: 30% granulation, 50% slough, 20% eschar</div>
+                        <div>Exudate: High</div>
+                    </div>
+                </div>
+                <div>
+                    <h3>Today — Day 42</h3>
+                    <div style="background:#e2e8f0;border-radius:10px;height:200px;display:flex;align-items:center;justify-content:center;color:#718096;font-size:13px;">
+                        📷 Current scan image<br><small>Area: 7.4 cm² · Granulation: 60%</small>
+                    </div>
+                    <div style="margin-top:12px;font-size:13px;">
+                        <div>Length: 3.2 cm · Width: 2.9 cm</div>
+                        <div>Tissue: 60% granulation, 25% slough, 10% eschar, 5% epithelial</div>
+                        <div>Exudate: Moderate</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="tab-timelapse" style="display:none;">
+        <div class="card">
+            <h2>🎞️ Wound Time-Lapse</h2>
+            <div style="text-align:center;padding:40px;">
+                <div style="font-size:48px;margin-bottom:16px;">🎞️</div>
+                <p style="color:#718096;">Time-lapse animation of wound progression</p>
+                <p style="font-size:13px;color:#a0aec0;margin-top:8px;">6 scans over 42 days</p>
+                <button class="btn btn-primary" style="margin-top:16px;">▶️ Play Time-Lapse</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ADMIN PAGE -->
+<div id="page-admin" class="page">
+    <h1>Administration & Compliance</h1>
+    <p class="page-subtitle">Audit trail, resource management, and system settings</p>
+
+    <div class="grid-2">
+        <div class="card">
+            <h2>🔒 HIPAA/GDPR Compliance</h2>
+            <div style="display:flex;flex-direction:column;gap:10px;font-size:14px;">
+                <div style="display:flex;justify-content:space-between;padding:10px;background:#c6f6d5;border-radius:8px;">
+                    <span>PHI Encryption (AES-256)</span><span>✅ Active</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;padding:10px;background:#c6f6d5;border-radius:8px;">
+                    <span>TLS 1.3 In-Transit Encryption</span><span>✅ Active</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;padding:10px;background:#c6f6d5;border-radius:8px;">
+                    <span>Zero-Footprint Storage</span><span>✅ Enabled</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;padding:10px;background:#c6f6d5;border-radius:8px;">
+                    <span>FHIR R4 EHR Integration</span><span>✅ Connected</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;padding:10px;background:#fefcbf;border-radius:8px;">
+                    <span>Offline Sync Queue</span><span>⚡ 3 pending</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>📋 Audit Trail</h2>
+            <table>
+                <thead>
+                    <tr><th>User</th><th>Action</th><th>Resource</th><th>Time</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>Nurse S. Cohen</td><td>Created scan</td><td>Scan #8821</td><td>09:42</td></tr>
+                    <tr><td>Dr. R. Katz</td><td>Viewed record</td><td>Patient #10045521</td><td>09:35</td></tr>
+                    <tr><td>Nurse M. Levi</td><td>Updated notes</td><td>Wound #W-442</td><td>08:20</td></tr>
+                    <tr><td>System</td><td>Stalled alert</td><td>Wound #W-391</td><td>08:15</td></tr>
+                    <tr><td>Nurse S. Cohen</td><td>Exported PDF</td><td>Scan #8810</td><td>Yesterday</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card">
+            <h2>💊 Dressing Inventory & Usage</h2>
+            <table>
+                <thead>
+                    <tr><th>Dressing Type</th><th>Used (Month)</th><th>Stock</th><th>Forecast</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>Alginate Dressing</td><td>47 units</td><td><span class="badge badge-green">142 left</span></td><td>~50/month</td></tr>
+                    <tr><td>Foam Dressing</td><td>83 units</td><td><span class="badge badge-yellow">34 left</span></td><td>Reorder needed</td></tr>
+                    <tr><td>Hydrocolloid</td><td>22 units</td><td><span class="badge badge-green">98 left</span></td><td>~25/month</td></tr>
+                    <tr><td>Hydrogel</td><td>15 units</td><td><span class="badge badge-red">8 left</span></td><td>🚨 Urgent reorder</td></tr>
+                    <tr><td>Silicone Foam</td><td>38 units</td><td><span class="badge badge-green">71 left</span></td><td>~40/month</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card">
+            <h2>🌐 EHR Integration Status</h2>
+            <div style="display:flex;flex-direction:column;gap:10px;font-size:14px;">
+                <div style="padding:12px;background:#f7fafc;border-radius:8px;">
+                    <div style="font-weight:600;">Epic EMR (Primary)</div>
+                    <div style="color:#38a169;font-size:13px;margin-top:4px;">✅ Connected · FHIR R4 · Last sync: 2 min ago</div>
+                </div>
+                <div style="padding:12px;background:#f7fafc;border-radius:8px;">
+                    <div style="font-weight:600;">Clalit HMO System</div>
+                    <div style="color:#38a169;font-size:13px;margin-top:4px;">✅ Connected · HL7 v2.7 · Last sync: 15 min ago</div>
+                </div>
+                <div style="padding:12px;background:#f7fafc;border-radius:8px;">
+                    <div style="font-weight:600;">Offline Sync Queue</div>
+                    <div style="color:#d69e2e;font-size:13px;margin-top:4px;">⏳ 3 records pending · Will sync on reconnect</div>
+                </div>
+                <button class="btn btn-primary" style="margin-top:8px;">Force Sync Now</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Patient Modal -->
+<div class="modal-overlay" id="add-patient-modal">
+    <div class="modal">
+        <button class="modal-close" onclick="document.getElementById('add-patient-modal').classList.remove('open')">✕</button>
+        <h2>Add New Patient</h2>
+        <div class="form-group"><label>Medical Record Number (MRN)</label><input type="text" placeholder="e.g., 10056789"></div>
+        <div class="grid-2">
+            <div class="form-group"><label>First Name</label><input type="text" placeholder="First name"></div>
+            <div class="form-group"><label>Last Name</label><input type="text" placeholder="Last name"></div>
+        </div>
+        <div class="grid-2">
+            <div class="form-group"><label>Date of Birth</label><input type="date"></div>
+            <div class="form-group"><label>Gender</label>
+                <select><option>Male</option><option>Female</option><option>Other</option></select>
+            </div>
+        </div>
+        <div class="form-group"><label>Facility / Ward</label><input type="text" placeholder="e.g., Ward 4B"></div>
+        <button class="btn btn-primary" style="width:100%;" onclick="document.getElementById('add-patient-modal').classList.remove('open')">Add Patient</button>
+    </div>
+</div>
+
+<script>
+    // Navigation
+    function showPage(name) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+        document.getElementById('page-' + name).classList.add('active');
+        const navBtns = document.querySelectorAll('nav button');
+        const pageNames = ['dashboard', 'capture', 'patients', 'analytics', 'admin'];
+        const idx = pageNames.indexOf(name);
+        if (idx >= 0) navBtns[idx].classList.add('active');
+        if (name === 'analytics') setTimeout(drawCharts, 100);
+        if (name === 'dashboard') setTimeout(drawDashboardChart, 100);
+    }
+
+    // Tabs
+    function switchTab(btn, tabId) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        btn.classList.add('active');
+        ['tab-trend', 'tab-comparison', 'tab-timelapse'].forEach(id => {
+            document.getElementById(id).style.display = 'none';
+        });
+        document.getElementById(tabId).style.display = 'block';
+        if (tabId === 'tab-trend') setTimeout(() => drawHealingChart(), 100);
+    }
+
+    // Image upload preview
+    function handleImageUpload(event) {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = e => {
+                document.getElementById('preview-img').src = e.target.result;
+                document.getElementById('image-preview').style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    // Body map click
+    function handleBodyMapClick(event) {
+        const svg = event.currentTarget;
+        const rect = svg.getBoundingClientRect();
+        const scaleX = 100 / rect.width;
+        const scaleY = 220 / rect.height;
+        const x = (event.clientX - rect.left) * scaleX;
+        const y = (event.clientY - rect.top) * scaleY;
+
+        const pin = document.getElementById('active-pin');
+        pin.setAttribute('cx', x);
+        pin.setAttribute('cy', y);
+        pin.style.display = 'block';
+
+        document.getElementById('body-map-pins').innerHTML =
+            `<div class="alert alert-info">📍 Wound location pinned at coordinates (${x.toFixed(0)}, ${y.toFixed(0)})</div>`;
+    }
+
+    // Voice recording simulation
+    let isRecording = false;
+    let recognitionInterval = null;
+    const voicePhrases = [
+        "Wound showing signs of improvement with healthy granulation tissue...",
+        "Patient reports mild pain at site, no signs of infection...",
+        "Moderate exudate present, dressing changed with alginate...",
+        "Periwound skin intact with slight maceration noted..."
+    ];
+    function toggleVoiceRecording() {
+        const btn = document.getElementById('voice-btn');
+        const status = document.getElementById('voice-status');
+        isRecording = !isRecording;
+        if (isRecording) {
+            btn.classList.add('recording');
+            btn.textContent = '⏹️';
+            status.textContent = '🎙️ Recording... speak your clinical notes';
+            let phraseIdx = 0;
+            recognitionInterval = setInterval(() => {
+                if (phraseIdx < voicePhrases.length) {
+                    const notes = document.getElementById('scan-notes');
+                    notes.value = (notes.value ? notes.value + ' ' : '') + voicePhrases[phraseIdx++];
+                }
+            }, 1500);
+        } else {
+            btn.classList.remove('recording');
+            btn.textContent = '🎤';
+            status.textContent = '✅ Voice input saved';
+            clearInterval(recognitionInterval);
+        }
+    }
+
+    // AI Scan simulation
+    function runAIScan() {
+        const results = document.getElementById('ai-results-card');
+        results.style.display = 'block';
+        // Simulate different results
+        const scenarios = [
+            { gran: 60, slough: 25, eschar: 10, epi: 5, exudate: 'Moderate / Serous', risk: 'Low', dressing: 'Foam Dressing with Superabsorbent Layer' },
+            { gran: 30, slough: 55, eschar: 10, epi: 5, exudate: 'High / Serosanguineous', risk: 'None', dressing: 'Alginate Dressing' },
+            { gran: 20, slough: 30, eschar: 45, epi: 5, exudate: 'Low / Serous', risk: 'Moderate', dressing: 'Hydrocolloid or Enzymatic Debridement Agent' },
+        ];
+        const s = scenarios[Math.floor(Math.random() * scenarios.length)];
+        document.getElementById('bar-granulation').style.width = s.gran + '%';
+        document.getElementById('pct-granulation').textContent = s.gran + '%';
+        document.getElementById('bar-slough').style.width = s.slough + '%';
+        document.getElementById('pct-slough').textContent = s.slough + '%';
+        document.getElementById('bar-eschar').style.width = s.eschar + '%';
+        document.getElementById('pct-eschar').textContent = s.eschar + '%';
+        document.getElementById('bar-epithelial').style.width = s.epi + '%';
+        document.getElementById('pct-epithelial').textContent = s.epi + '%';
+        document.getElementById('res-exudate').textContent = s.exudate;
+        document.getElementById('res-risk').textContent = s.risk;
+        document.getElementById('res-dressing').textContent = s.dressing;
+        if (s.risk === 'Moderate' || s.risk === 'High') {
+            document.getElementById('sub-epidermal-alert').style.display = 'flex';
+        }
+        results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function saveScan() {
+        alert('✅ Scan saved successfully!\n\nImage encrypted and uploaded to secure cloud.\nNever saved to device gallery (zero-footprint).\nEHR sync queued via FHIR R4.');
+    }
+
+    function exportPDF() {
+        alert('📄 PDF report generated and pushed to Epic EMR via FHIR R4.\n\nReport includes:\n• 3D measurements\n• Tissue segmentation\n• Treatment recommendation\n• Healing trend');
+    }
+
+    function updateAnalytics() {
+        setTimeout(drawHealingChart, 100);
+    }
+
+    // Simple canvas chart drawing
+    function drawHealingChart() {
+        const canvas = document.getElementById('healingChart');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const W = canvas.offsetWidth || 400;
+        const H = canvas.height || 220;
+        canvas.width = W;
+        ctx.clearRect(0, 0, W, H);
+
+        const data = [8.4, 8.2, 8.0, 7.9, 7.7, 7.4];
+        const labels = ['Day 0', 'Day 7', 'Day 14', 'Day 21', 'Day 28', 'Day 42'];
+        const threshold = 8.4 * 0.8; // 20% reduction threshold
+
+        const pad = { top: 20, right: 20, bottom: 40, left: 50 };
+        const w = W - pad.left - pad.right;
+        const h = H - pad.top - pad.bottom;
+        const maxVal = 10, minVal = 0;
+
+        // Grid
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 5; i++) {
+            const y = pad.top + (h * i / 5);
+            ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(W - pad.right, y); ctx.stroke();
+            ctx.fillStyle = '#718096'; ctx.font = '11px sans-serif'; ctx.textAlign = 'right';
+            ctx.fillText((maxVal - (maxVal * i / 5)).toFixed(0), pad.left - 6, y + 4);
+        }
+
+        // Threshold line
+        const threshY = pad.top + h - (threshold / maxVal) * h;
+        ctx.strokeStyle = '#fc8181';
+        ctx.setLineDash([6, 3]);
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(pad.left, threshY); ctx.lineTo(W - pad.right, threshY); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#fc8181'; ctx.font = '10px sans-serif'; ctx.textAlign = 'left';
+        ctx.fillText('20% reduction target', pad.left + 4, threshY - 3);
+
+        // Area line
+        ctx.strokeStyle = '#3182ce';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        data.forEach((v, i) => {
+            const x = pad.left + (w * i / (data.length - 1));
+            const y = pad.top + h - (v / maxVal) * h;
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+
+        // Dots
+        data.forEach((v, i) => {
+            const x = pad.left + (w * i / (data.length - 1));
+            const y = pad.top + h - (v / maxVal) * h;
+            ctx.fillStyle = '#3182ce';
+            ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#2d3748'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText(v + ' cm²', x, y - 8);
+            ctx.fillStyle = '#718096'; ctx.font = '10px sans-serif';
+            ctx.fillText(labels[i], x, H - pad.bottom + 15);
+        });
+    }
+
+    function drawDashboardChart() {
+        const canvas = document.getElementById('etiologyChart');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const W = canvas.offsetWidth || 400;
+        const H = 200;
+        canvas.width = W;
+        canvas.height = H;
+        ctx.clearRect(0, 0, W, H);
+
+        const data = [
+            { label: 'Pressure Ulcer', value: 16, color: '#fc8181' },
+            { label: 'Diabetic Foot', value: 12, color: '#f6ad55' },
+            { label: 'Venous Leg', value: 8, color: '#68d391' },
+            { label: 'Surgical Site', value: 4, color: '#76e4f7' },
+            { label: 'Other', value: 2, color: '#b794f4' },
+        ];
+        const total = data.reduce((s, d) => s + d.value, 0);
+        const cx = 100, cy = 100, r = 80;
+
+        let startAngle = -Math.PI / 2;
+        data.forEach(d => {
+            const slice = (d.value / total) * Math.PI * 2;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.arc(cx, cy, r, startAngle, startAngle + slice);
+            ctx.fillStyle = d.color;
+            ctx.fill();
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            startAngle += slice;
+        });
+
+        // Legend
+        let ly = 20;
+        data.forEach(d => {
+            ctx.fillStyle = d.color;
+            ctx.fillRect(210, ly, 14, 14);
+            ctx.fillStyle = '#2d3748';
+            ctx.font = '12px sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText(`${d.label} (${d.value})`, 230, ly + 11);
+            ly += 24;
+        });
+    }
+
+    // Simulate offline/online toggle
+    let offlineMode = false;
+    setInterval(() => {
+        // Randomly simulate connectivity changes for demo
+    }, 30000);
+
+    // Initialize
+    setTimeout(drawDashboardChart, 200);
+</script>
+</body>
+</html>
