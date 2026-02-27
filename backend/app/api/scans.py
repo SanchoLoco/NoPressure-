@@ -17,7 +17,7 @@ router = APIRouter(prefix="/scans", tags=["scans"])
 
 
 class ScanResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, protected_namespaces=())
 
     id: str
     wound_id: str
