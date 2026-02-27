@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Float, Text, Boolean, ForeignKey, JSON, Integer
+from sqlalchemy import Column, String, Float, Text, Boolean, ForeignKey, JSON, Integer, DateTime
 from sqlalchemy.orm import relationship
 from .base import Base, TimestampMixin, generate_uuid
 
@@ -61,6 +61,20 @@ class Scan(Base, TimestampMixin):
     # Healing progress
     par_from_baseline = Column(Float, nullable=True)  # Percentage Area Reduction from first scan
 
+    # External classifier results (FDA/SaMD traceability)
+    severity_score = Column(Float, nullable=True)       # Continuous score e.g. 2.7
+    stage_classification = Column(String(20), nullable=True)  # "Stage 1" through "Stage 4"
+    ai_confidence = Column(Float, nullable=True)        # 0.0-1.0
+    model_version = Column(String(50), nullable=True)   # Version of the classifier model
+
+    # Clinician confirmation / override
+    clinician_confirmed = Column(Boolean, default=False)
+    confirmed_by = Column(String(100), nullable=True)
+    confirmed_at = Column(DateTime, nullable=True)
+    override_reason = Column(Text, nullable=True)
+    override_severity_score = Column(Float, nullable=True)
+    override_stage = Column(String(20), nullable=True)
+
     wound = relationship("Wound", back_populates="scans")
     audit_logs = relationship("AuditLog", back_populates="scan", cascade="all, delete-orphan")
 
@@ -76,6 +90,8 @@ class AuditLog(Base, TimestampMixin):
     resource_type = Column(String(50), nullable=False)
     resource_id = Column(String, nullable=False)
     ip_address = Column(String(45), nullable=True)
+    request_method = Column(String(10), nullable=True)
+    request_path = Column(String(500), nullable=True)
     user_agent = Column(String(500), nullable=True)
     changes = Column(JSON, nullable=True)
 

@@ -2,7 +2,7 @@
 Core AI Engine for wound scanning and tissue segmentation.
 Implements tissue classification, wound measurement, and sub-epidermal analysis.
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional, Dict, List
 import math
 
@@ -54,6 +54,11 @@ class ScanAnalysisResult:
     exudate_level: str
     exudate_type: str
     periwound_condition: str
+    # Classifier results (populated if external classifier is available)
+    severity_score: Optional[float] = None
+    stage_classification: Optional[str] = None
+    ai_confidence: Optional[float] = None
+    model_version: Optional[str] = None
 
 
 class AIWoundEngine:
@@ -65,6 +70,7 @@ class AIWoundEngine:
     - Photogrammetry/LiDAR for 3D measurements
     - Thermal sensor APIs for temperature analysis
     - Auto-calibration via fiducial markers
+    - External wound classifier API for continuous severity scoring
     """
 
     MEASUREMENT_ERROR_TARGET = 5.0  # <5% margin of error
@@ -75,6 +81,7 @@ class AIWoundEngine:
         has_calibration_marker: bool = True,
         thermal_data: Optional[bytes] = None,
         capture_angle: float = 90.0,
+        wound_id: Optional[str] = None,
     ) -> ScanAnalysisResult:
         """
         Analyze wound image and return comprehensive scan results.
@@ -84,6 +91,7 @@ class AIWoundEngine:
             has_calibration_marker: Whether physical scale marker is present
             thermal_data: Optional thermal sensor data for sub-epidermal analysis
             capture_angle: Camera angle in degrees (target: 90°)
+            wound_id: Optional wound ID for classifier API call
 
         Returns:
             ScanAnalysisResult with all measurements and AI classifications
@@ -104,6 +112,25 @@ class AIWoundEngine:
         exudate_level, exudate_type = self._assess_exudate(image_data)
         periwound = self._assess_periwound(image_data)
 
+        # Call external classifier API for severity score and staging
+        severity_score = None
+        stage_classification = None
+        ai_confidence = None
+        model_version = None
+        try:
+            from .classifier_client import classifier_client
+            classifier_result = classifier_client.classify(
+                image_data=image_data,
+                wound_id=wound_id or "",
+            )
+            if classifier_result is not None:
+                severity_score = classifier_result.severity_score
+                stage_classification = classifier_result.stage
+                ai_confidence = classifier_result.confidence
+                model_version = classifier_result.model_version
+        except Exception:
+            pass  # Classifier is optional; proceed without it
+
         return ScanAnalysisResult(
             measurements=measurements,
             tissue=tissue,
@@ -113,6 +140,10 @@ class AIWoundEngine:
             exudate_level=exudate_level,
             exudate_type=exudate_type,
             periwound_condition=periwound,
+            severity_score=severity_score,
+            stage_classification=stage_classification,
+            ai_confidence=ai_confidence,
+            model_version=model_version,
         )
 
     def _validate_capture_angle(self, angle: float) -> None:

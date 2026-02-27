@@ -5,9 +5,12 @@ HIPAA/GDPR compliant wound management platform.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .models.base import Base, engine
-from .api import patients, wounds, scans, analytics
+from .models import alert  # Ensure Alert tables are registered
+from .api import patients, wounds, scans, analytics, auth, alerts, admin
+from .core.audit_middleware import AuditMiddleware
 
 # Create all database tables
+# NOTE: In production, use Alembic migrations instead of create_all()
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
@@ -24,16 +27,21 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Restrict in production
+    allow_origins=["*"],  # TODO: Restrict to specific origins in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+app.add_middleware(AuditMiddleware)
+
+app.include_router(auth.router, prefix="/api/v1")
 app.include_router(patients.router, prefix="/api/v1")
 app.include_router(wounds.router, prefix="/api/v1")
 app.include_router(scans.router, prefix="/api/v1")
 app.include_router(analytics.router, prefix="/api/v1")
+app.include_router(alerts.router, prefix="/api/v1")
+app.include_router(admin.router, prefix="/api/v1")
 
 
 @app.get("/health")
