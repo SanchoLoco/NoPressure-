@@ -76,7 +76,10 @@ class AuditMiddleware(BaseHTTPMiddleware):
             db.add(log_entry)
             db.commit()
         except Exception as exc:
-            logger.warning("Audit log write failed: %s", exc)
+            logger.warning(
+                "Audit log write failed for %s %s (user=%s): %s",
+                request.method, path, user_id, exc,
+            )
         finally:
             db.close()
 

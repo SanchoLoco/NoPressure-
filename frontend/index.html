@@ -1441,7 +1441,7 @@
             });
             if (!resp.ok) {
                 // Dev mode: allow bypass if API not running
-                if (resp.status === 0 || resp.status >= 500) throw new Error('Server unavailable');
+                if (resp.status >= 500) throw new Error('Server unavailable');
                 const data = await resp.json();
                 throw new Error(data.detail || 'Login failed');
             }
@@ -1699,10 +1699,10 @@
             tbody.innerHTML = logs.map(l => `
                 <tr>
                     <td>${new Date(l.created_at).toLocaleString()}</td>
-                    <td>${l.user_id.substring(0,8)}...</td>
+                    <td>${(l.user_id || '').substring(0,8)}...</td>
                     <td>${l.action}</td>
                     <td>${l.resource_type}</td>
-                    <td>${l.resource_id.substring(0,8)}...</td>
+                    <td>${(l.resource_id || '').substring(0,8)}...</td>
                     <td>${l.ip_address || '—'}</td>
                 </tr>
             `).join('');

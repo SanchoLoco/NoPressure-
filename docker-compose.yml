@@ -21,7 +21,7 @@ services:
     build: ./backend
     environment:
       DATABASE_URL: postgresql://nopressure:nopressure_dev_password@db:5432/nopressure
-      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env (use a strong random key in production)}
       CLASSIFIER_MOCK_MODE: ${CLASSIFIER_MOCK_MODE:-true}
       CLASSIFIER_API_URL: ${CLASSIFIER_API_URL:-}
       CLASSIFIER_API_KEY: ${CLASSIFIER_API_KEY:-}

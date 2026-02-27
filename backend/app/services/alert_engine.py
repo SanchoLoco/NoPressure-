@@ -111,8 +111,8 @@ def evaluate_alerts(wound_id: str, db: Session) -> List[Alert]:
                     alert_type=AlertType.STALLED_WOUND,
                     severity=AlertSeverity.MEDIUM,
                     message=(
-                        f"Wound has not improved by 20%% in {days_elapsed} days "
-                        f"(current PAR: {par:.1f}%%). Consider treatment plan review."
+                        f"Wound has not improved by 20% in {days_elapsed} days "
+                        f"(current PAR: {par:.1f}%). Consider treatment plan review."
                     ),
                 )
                 db.add(alert)

@@ -70,7 +70,7 @@ class RefreshRequest(BaseModel):
 def register(
     req: RegisterRequest,
     db: Session = Depends(get_db),
-    _admin=Depends(require_role(UserRole.ADMIN)),
+    current_admin=Depends(require_role(UserRole.ADMIN)),
 ):
     """Admin-only: create a new user account."""
     if db.query(User).filter(User.email == req.email).first():
