@@ -352,22 +352,83 @@
             font-weight: 600;
             margin: 3px;
         }
+        /* Login page */
+        .login-page { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(135deg, #1a365d, #2b6cb0); }
+        .login-card { background: white; border-radius: 16px; padding: 40px; max-width: 400px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+        .login-card h1 { color: #1a365d; font-size: 28px; margin-bottom: 8px; }
+        .login-card .subtitle { color: #718096; font-size: 14px; margin-bottom: 28px; }
+        /* Severity score display */
+        .severity-score-big { font-size: 64px; font-weight: 800; line-height: 1; }
+        .severity-low { color: #38a169; }
+        .severity-medium { color: #d69e2e; }
+        .severity-high { color: #c53030; }
+        /* Alert bell */
+        .alert-bell-btn { position: relative; background: none; border: none; color: #bee3f8; font-size: 22px; cursor: pointer; padding: 8px; }
+        .alert-bell-count { position: absolute; top: 2px; right: 2px; background: #e53e3e; color: white; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+        /* Alert dropdown */
+        .alert-dropdown { position: absolute; top: 60px; right: 16px; background: white; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.15); width: 360px; z-index: 500; max-height: 400px; overflow-y: auto; display: none; }
+        .alert-dropdown.open { display: block; }
+        .alert-dropdown-header { padding: 14px 16px; border-bottom: 1px solid #e2e8f0; font-weight: 600; color: #1a365d; }
+        .alert-item { padding: 12px 16px; border-bottom: 1px solid #e2e8f0; cursor: pointer; }
+        .alert-item:hover { background: #f7fafc; }
+        .alert-item.unread { background: #ebf8ff; }
+        .alert-item .alert-type { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #718096; }
+        .alert-item .alert-msg { font-size: 13px; color: #2d3748; margin-top: 2px; }
+        /* Camera */
+        #camera-video { width: 100%; border-radius: 12px; }
+        .camera-overlay-circle { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 200px; height: 200px; border: 3px dashed rgba(255,255,255,0.7); border-radius: 50%; pointer-events: none; }
+        /* Confirm/Override buttons */
+        .confirm-btn { background: #38a169; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; margin-right: 8px; }
+        .override-btn { background: #e53e3e; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
 
-<nav>
+<!-- AUTH GUARD: shows login if not authenticated -->
+<div id="login-overlay" class="login-page" style="display:none;">
+    <div class="login-card">
+        <h1>🩹 NoPressure</h1>
+        <p class="subtitle">Wound Monitoring Platform — Clinical Login</p>
+        <div id="login-error" class="alert alert-danger" style="display:none;"></div>
+        <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="login-email" placeholder="clinician@hospital.org" />
+        </div>
+        <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="login-password" placeholder="••••••••" />
+        </div>
+        <button class="btn btn-primary" style="width:100%;" onclick="doLogin()">Sign In</button>
+        <p style="margin-top:16px;font-size:12px;color:#718096;text-align:center;">Demo: use any email / password — auth is optional for dev mode</p>
+    </div>
+</div>
+
+<nav id="main-nav">
     <div class="logo">No<span>Pressure</span></div>
     <button class="active" onclick="showPage('dashboard')">📊 Dashboard</button>
     <button onclick="showPage('capture')">📷 Scan Wound</button>
-    <button onclick="showPage('patients')">👥 Patients</button>
+    <button onclick="showPage('patients-dashboard')">👥 Patients</button>
     <button onclick="showPage('analytics')">📈 Analytics</button>
     <button onclick="showPage('admin')">⚙️ Admin</button>
     <div class="nav-right">
         <span id="connectivity-badge" class="online-badge">● Online</span>
+        <!-- Alert bell -->
+        <button class="alert-bell-btn" onclick="toggleAlertDropdown()" id="alert-bell-btn">
+            🔔
+            <span class="alert-bell-count" id="alert-unread-count" style="display:none;">0</span>
+        </button>
+        <span id="nav-user-name" style="color:#bee3f8;font-size:13px;"></span>
+        <button onclick="doLogout()" style="background:#e53e3e;color:white;border-radius:8px;font-size:12px;padding:6px 12px;">Logout</button>
         <button onclick="showPage('capture')" style="background:#3182ce;color:white;border-radius:8px;">+ New Scan</button>
     </div>
 </nav>
+
+<!-- Alert Dropdown -->
+<div class="alert-dropdown" id="alert-dropdown">
+    <div class="alert-dropdown-header">🔔 Clinical Alerts <span id="alert-dropdown-count"></span></div>
+    <div id="alert-dropdown-list"><div style="padding:16px;color:#718096;text-align:center;">No alerts</div></div>
+</div>
 
 <!-- DASHBOARD PAGE -->
 <div id="page-dashboard" class="page active">
@@ -508,17 +569,19 @@
             <!-- Camera guidance -->
             <div class="card">
                 <h2>📷 Camera Guidance</h2>
-                <div class="capture-container">
-                    <div class="video-placeholder">
+                <div class="capture-container" style="position:relative;">
+                    <div id="camera-placeholder" class="video-placeholder">
                         <div class="camera-icon">📷</div>
-                        <div>Point camera at wound</div>
-                        <div style="font-size:12px;">Keep wound centered in circle</div>
+                        <p>Tap to start camera</p>
+                        <button class="btn btn-primary" onclick="startCamera()">Start Camera</button>
                     </div>
-                    <div class="capture-overlay">
-                        <div class="capture-crosshair"></div>
-                        <div class="capture-guide">🎯 Align wound within the circle · Hold steady</div>
-                    </div>
-                    <div class="angle-indicator good" id="angle-indicator">📐 90° ✓</div>
+                    <video id="camera-video" autoplay playsinline style="display:none;width:100%;border-radius:12px;"></video>
+                    <div class="camera-overlay-circle" style="pointer-events:none;"></div>
+                </div>
+                <div style="margin-top:12px;display:flex;gap:12px;align-items:center;">
+                    <button id="capture-btn" class="btn btn-success" style="display:none;" onclick="capturePhoto()">📸 Capture Photo</button>
+                    <div id="capture-preview"></div>
+                    <span id="camera-captured-indicator" style="display:none;color:#38a169;font-weight:600;">✅ Photo captured</span>
                 </div>
                 <div style="margin-top:16px;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
@@ -749,6 +812,23 @@
                 <div id="body-map-pins" style="margin-top:12px;"></div>
             </div>
         </div>
+    </div>
+    <!-- AI Result Confirm / Override Panel -->
+    <div id="confirm-override-panel" class="card" style="display:none;margin-top:16px;border:2px solid #3182ce;">
+        <h2>🩺 Clinician Review Required</h2>
+        <p style="color:#718096;margin-bottom:12px;">Review the AI-generated results below and confirm or override.</p>
+        <div class="grid-2" style="margin-bottom:16px;">
+            <div style="text-align:center;">
+                <div style="font-size:13px;color:#718096;">AI Severity Score</div>
+                <div class="severity-score-big severity-medium" id="current-severity-display">—</div>
+            </div>
+            <div style="text-align:center;">
+                <div style="font-size:13px;color:#718096;">AI Stage</div>
+                <div style="font-size:24px;font-weight:700;color:#1a365d;" id="current-stage-display">—</div>
+            </div>
+        </div>
+        <button class="confirm-btn" onclick="confirmScan()">✅ Confirm AI Result</button>
+        <button class="override-btn" onclick="overrideScan()">✏️ Override with Clinical Judgment</button>
     </div>
 </div>
 
@@ -1002,6 +1082,15 @@
             </div>
         </div>
     </div>
+    <!-- Audit Log Viewer -->
+    <div id="admin-auditlog-section" class="card" style="margin-top:20px;">
+        <h2>Audit Log Viewer</h2>
+        <p style="color:#718096;font-size:13px;margin-bottom:12px;">HIPAA-compliant access log for all PHI endpoints. Admin only.</p>
+        <table>
+            <thead><tr><th>Timestamp</th><th>User</th><th>Action</th><th>Resource Type</th><th>Resource ID</th><th>IP Address</th></tr></thead>
+            <tbody id="audit-log-tbody"><tr><td colspan="6" style="text-align:center;color:#718096;padding:24px;">Select Admin tab to load audit logs</td></tr></tbody>
+        </table>
+    </div>
 </div>
 
 <!-- Add Patient Modal -->
@@ -1022,6 +1111,44 @@
         </div>
         <div class="form-group"><label>Facility / Ward</label><input type="text" placeholder="e.g., Ward 4B"></div>
         <button class="btn btn-primary" style="width:100%;" onclick="document.getElementById('add-patient-modal').classList.remove('open')">Add Patient</button>
+    </div>
+</div>
+
+<!-- PATIENT DASHBOARD PAGE -->
+<div id="page-patients-dashboard" class="page">
+    <h1>Patient Dashboard</h1>
+    <p class="page-subtitle">Search patients and view wound summaries</p>
+    <div class="card">
+        <div style="display:flex;gap:12px;margin-bottom:16px;">
+            <input type="text" id="patient-search-input" placeholder="Search by name or MRN..." style="flex:1;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;" oninput="searchPatients(this.value)"/>
+            <button class="btn btn-primary" onclick="searchPatients(document.getElementById('patient-search-input').value)">🔍 Search</button>
+            <button class="btn btn-success" onclick="showAddPatientModal()">+ Add Patient</button>
+        </div>
+        <div id="patient-list-container">
+            <table id="patient-table">
+                <thead><tr><th>Patient</th><th>MRN</th><th>Facility</th><th>Wounds</th><th>Latest Severity</th><th>Actions</th></tr></thead>
+                <tbody id="patient-table-body"><tr><td colspan="6" style="text-align:center;color:#718096;padding:24px;">Loading patients...</td></tr></tbody>
+            </table>
+        </div>
+    </div>
+    <!-- Wound summary for selected patient -->
+    <div id="wound-summary-card" class="card" style="display:none;">
+        <h2 id="wound-summary-title">Wounds for Patient</h2>
+        <button class="btn btn-success" style="margin-bottom:12px;" onclick="showAddWoundModal()">+ Add New Wound</button>
+        <div id="wound-summary-list"></div>
+    </div>
+</div>
+
+<!-- WOUND TIMELINE PAGE -->
+<div id="page-wound-timeline" class="page">
+    <h1>Wound Timeline</h1>
+    <p class="page-subtitle" id="timeline-subtitle">Severity progression over time</p>
+    <div class="card">
+        <canvas id="timeline-chart" height="120"></canvas>
+    </div>
+    <div class="card">
+        <h2>Scan History</h2>
+        <div id="timeline-scan-list"></div>
     </div>
 </div>
 
@@ -1139,6 +1266,17 @@
             document.getElementById('sub-epidermal-alert').style.display = 'flex';
         }
         results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // Show AI result severity score (mock: 2.7)
+        const mockSeverity = (Math.random() * 2 + 1.5).toFixed(1);
+        const mockStage = ['Stage 1','Stage 2','Stage 3'][Math.floor(Math.random()*3)];
+        // Show confirm/override panel (with a mock scan ID for demo)
+        currentScanId = 'demo-scan-' + Date.now();
+        showConfirmOverride(currentScanId, parseFloat(mockSeverity), mockStage);
+        // Display severity score prominently
+        const severityEl = document.createElement('div');
+        severityEl.style.cssText = 'text-align:center;margin:12px 0;';
+        severityEl.innerHTML = `<div style="font-size:13px;color:#718096;">AI Severity Score</div><div class="severity-score-big ${parseFloat(mockSeverity)>=3?'severity-high':parseFloat(mockSeverity)>=2?'severity-medium':'severity-low'}">${mockSeverity}</div><div style="font-size:13px;color:#718096;">${mockStage} • Confidence: 94%</div>`;
+        results.insertBefore(severityEl, results.firstChild);
     }
 
     function saveScan() {
@@ -1271,6 +1409,410 @@
 
     // Initialize
     setTimeout(drawDashboardChart, 200);
+
+    // ── Auth State ─────────────────────────────────────────────────────────────
+    const API = '/api/v1';
+    let authToken = sessionStorage.getItem('auth_token');
+    let currentUser = JSON.parse(sessionStorage.getItem('current_user') || 'null');
+
+    function initAuth() {
+        if (!authToken) {
+            document.getElementById('login-overlay').style.display = 'flex';
+            document.getElementById('main-nav').style.display = 'none';
+            document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
+        } else {
+            document.getElementById('login-overlay').style.display = 'none';
+            document.getElementById('main-nav').style.display = 'flex';
+            if (currentUser) document.getElementById('nav-user-name').textContent = currentUser.full_name || currentUser.email || '';
+            loadUnreadAlerts();
+        }
+    }
+
+    async function doLogin() {
+        const email = document.getElementById('login-email').value;
+        const password = document.getElementById('login-password').value;
+        const errDiv = document.getElementById('login-error');
+        errDiv.style.display = 'none';
+        try {
+            const resp = await fetch(API + '/auth/login', {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({email, password})
+            });
+            if (!resp.ok) {
+                // Dev mode: allow bypass if API not running
+                if (resp.status === 0 || resp.status >= 500) throw new Error('Server unavailable');
+                const data = await resp.json();
+                throw new Error(data.detail || 'Login failed');
+            }
+            const data = await resp.json();
+            authToken = data.access_token;
+            sessionStorage.setItem('auth_token', authToken);
+            // Fetch user profile
+            const meResp = await fetch(API + '/auth/me', {headers:{Authorization:'Bearer '+authToken}});
+            if (meResp.ok) {
+                currentUser = await meResp.json();
+                sessionStorage.setItem('current_user', JSON.stringify(currentUser));
+            }
+            initAuth();
+            showPage('dashboard');
+        } catch(e) {
+            // Dev bypass: if API isn't running, skip auth (DEVELOPMENT ONLY — disable in production)
+            if (e.message && e.message.includes('unavailable')) {
+                authToken = 'dev-bypass';
+                sessionStorage.setItem('auth_token', authToken);
+                sessionStorage.setItem('current_user', JSON.stringify({full_name:'Dev User',role:'admin'}));
+                currentUser = {full_name:'Dev User',role:'admin'};
+                initAuth();
+                showPage('dashboard');
+                return;
+            }
+            errDiv.textContent = e.message;
+            errDiv.style.display = 'block';
+        }
+    }
+
+    function doLogout() {
+        sessionStorage.removeItem('auth_token');
+        sessionStorage.removeItem('current_user');
+        authToken = null; currentUser = null;
+        initAuth();
+    }
+
+    function authHeaders() {
+        return authToken && authToken !== 'dev-bypass' ? {Authorization:'Bearer '+authToken} : {};
+    }
+
+    // ── Alert Bell ──────────────────────────────────────────────────────────────
+    let alertDropdownOpen = false;
+    function toggleAlertDropdown() {
+        alertDropdownOpen = !alertDropdownOpen;
+        const dd = document.getElementById('alert-dropdown');
+        dd.classList.toggle('open', alertDropdownOpen);
+        if (alertDropdownOpen) loadAlertDropdown();
+    }
+
+    async function loadUnreadAlerts() {
+        try {
+            const resp = await fetch(API + '/alerts/unread-count', {headers: authHeaders()});
+            if (!resp.ok) return;
+            const data = await resp.json();
+            const badge = document.getElementById('alert-unread-count');
+            if (data.unread_count > 0) {
+                badge.textContent = data.unread_count;
+                badge.style.display = 'flex';
+            } else {
+                badge.style.display = 'none';
+            }
+            document.getElementById('alert-dropdown-count').textContent = data.unread_count ? `(${data.unread_count} unread)` : '';
+        } catch(e) {}
+    }
+
+    async function loadAlertDropdown() {
+        const list = document.getElementById('alert-dropdown-list');
+        try {
+            const resp = await fetch(API + '/alerts/', {headers: authHeaders()});
+            if (!resp.ok) { list.innerHTML = '<div style="padding:16px;color:#718096;">Failed to load alerts</div>'; return; }
+            const alerts = await resp.json();
+            if (!alerts.length) { list.innerHTML = '<div style="padding:16px;color:#718096;text-align:center;">No alerts</div>'; return; }
+            list.innerHTML = alerts.slice(0,10).map(a => `
+                <div class="alert-item ${a.is_read ? '' : 'unread'}" onclick="markAlertRead('${a.id}')">
+                    <div class="alert-type">${a.alert_type.replace(/_/g,' ')} • ${a.severity}</div>
+                    <div class="alert-msg">${a.message.substring(0,120)}${a.message.length>120?'...':''}</div>
+                </div>
+            `).join('');
+        } catch(e) { list.innerHTML = '<div style="padding:16px;color:#718096;">API unavailable</div>'; }
+    }
+
+    async function markAlertRead(alertId) {
+        try {
+            await fetch(API + '/alerts/'+alertId+'/read', {method:'PATCH', headers: authHeaders()});
+            loadUnreadAlerts();
+            loadAlertDropdown();
+        } catch(e) {}
+    }
+
+    // ── Patient Dashboard ────────────────────────────────────────────────────────
+    let selectedPatientId = null;
+    async function loadPatients() {
+        try {
+            const resp = await fetch(API + '/patients/', {headers: authHeaders()});
+            if (!resp.ok) { renderPatientTable([]); return; }
+            const patients = await resp.json();
+            renderPatientTable(patients);
+        } catch(e) { renderPatientTable([]); }
+    }
+
+    async function searchPatients(q) {
+        if (!q || q.length < 2) { loadPatients(); return; }
+        try {
+            const resp = await fetch(API + '/patients/search?q='+encodeURIComponent(q), {headers: authHeaders()});
+            if (!resp.ok) return;
+            const patients = await resp.json();
+            renderPatientTable(patients);
+        } catch(e) {}
+    }
+
+    function renderPatientTable(patients) {
+        const tbody = document.getElementById('patient-table-body');
+        if (!patients.length) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#718096;padding:24px;">No patients found</td></tr>';
+            return;
+        }
+        tbody.innerHTML = patients.map(p => `
+            <tr>
+                <td><strong>${p.first_name} ${p.last_name}</strong></td>
+                <td><code>${p.mrn}</code></td>
+                <td>${p.facility_id || '—'}</td>
+                <td>—</td>
+                <td>—</td>
+                <td>
+                    <button class="btn btn-primary" style="font-size:12px;padding:6px 12px;" onclick="viewPatientWounds('${p.id}','${p.first_name} ${p.last_name}')">View Wounds</button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    async function viewPatientWounds(patientId, patientName) {
+        selectedPatientId = patientId;
+        const card = document.getElementById('wound-summary-card');
+        document.getElementById('wound-summary-title').textContent = `Wounds — ${patientName}`;
+        card.style.display = 'block';
+        const list = document.getElementById('wound-summary-list');
+        list.innerHTML = '<p style="color:#718096;">Loading wounds...</p>';
+        try {
+            const resp = await fetch(API + '/wounds/patient/'+patientId+'/summary', {headers: authHeaders()});
+            if (!resp.ok) { list.innerHTML = '<p style="color:#c53030;">Failed to load wounds</p>'; return; }
+            const wounds = await resp.json();
+            if (!wounds.length) { list.innerHTML = '<p style="color:#718096;">No wounds for this patient.</p>'; return; }
+            list.innerHTML = `<table>
+                <thead><tr><th>Location</th><th>Etiology</th><th>Status</th><th>Severity Score</th><th>Stage</th><th>Last Assessment</th><th>Actions</th></tr></thead>
+                <tbody>
+                ${wounds.map(w => `
+                    <tr>
+                        <td>${w.body_location || '—'}</td>
+                        <td>${w.etiology.replace(/_/g,' ')}</td>
+                        <td><span class="badge ${w.status==='stalled'?'badge-red':w.status==='healing'?'badge-green':'badge-blue'}">${w.status}</span></td>
+                        <td>${w.latest_severity_score != null ? `<span class="${severityClass(w.latest_severity_score)}" style="font-size:18px;font-weight:700;">${w.latest_severity_score.toFixed(1)}</span>` : '—'}</td>
+                        <td>${w.latest_stage || '—'}</td>
+                        <td>${w.last_assessment_date ? new Date(w.last_assessment_date).toLocaleDateString() : '—'}</td>
+                        <td><button class="btn btn-outline" style="font-size:12px;padding:6px 12px;" onclick="viewWoundTimeline('${w.id}')">📈 Timeline</button></td>
+                    </tr>
+                `).join('')}
+                </tbody>
+            </table>`;
+            card.scrollIntoView({behavior:'smooth'});
+        } catch(e) { list.innerHTML = '<p style="color:#c53030;">API unavailable</p>'; }
+    }
+
+    function severityClass(score) {
+        if (score < 2) return 'severity-low';
+        if (score < 3.5) return 'severity-medium';
+        return 'severity-high';
+    }
+
+    // ── Wound Timeline ─────────────────────────────────────────────────────────
+    let timelineChartInstance = null;
+    async function viewWoundTimeline(woundId) {
+        showPage('wound-timeline');
+        const scanList = document.getElementById('timeline-scan-list');
+        scanList.innerHTML = '<p style="color:#718096;">Loading timeline...</p>';
+        try {
+            const resp = await fetch(API + '/analytics/wound/'+woundId+'/timeline', {headers: authHeaders()});
+            if (!resp.ok) { scanList.innerHTML = '<p style="color:#c53030;">Failed to load timeline</p>'; return; }
+            const scans = await resp.json();
+            renderTimelineChart(scans);
+            renderTimelineScanList(scans);
+        } catch(e) { scanList.innerHTML = '<p style="color:#c53030;">API unavailable — showing demo data</p>'; renderDemoTimeline(); }
+    }
+
+    function renderTimelineChart(scans) {
+        const ctx = document.getElementById('timeline-chart').getContext('2d');
+        if (timelineChartInstance) timelineChartInstance.destroy();
+        const labels = scans.map(s => new Date(s.created_at).toLocaleDateString());
+        const scores = scans.map(s => s.severity_score);
+        timelineChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [{
+                    label: 'Severity Score',
+                    data: scores,
+                    borderColor: '#3182ce',
+                    backgroundColor: 'rgba(49,130,206,0.1)',
+                    tension: 0.3,
+                    fill: true,
+                    pointRadius: 5,
+                    pointBackgroundColor: scores.map(s => s >= 3.5 ? '#e53e3e' : s >= 2 ? '#d69e2e' : '#38a169'),
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `Severity: ${ctx.raw}` } } },
+                scales: { y: { min: 0, max: 4, title: { display: true, text: 'Severity Score' } } }
+            }
+        });
+    }
+
+    function renderTimelineScanList(scans) {
+        const list = document.getElementById('timeline-scan-list');
+        list.innerHTML = scans.map(s => `
+            <div class="timeline-item" style="margin-bottom:16px;padding:12px;border:1px solid #e2e8f0;border-radius:8px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <div>
+                        <span class="timeline-date">${new Date(s.created_at).toLocaleString()}</span>
+                        <div style="margin-top:4px;">
+                            ${s.severity_score != null ? `<span class="${severityClass(s.severity_score)} severity-score-big" style="font-size:24px;">${s.severity_score.toFixed(1)}</span>` : ''}
+                            ${s.stage_classification ? `<span class="badge badge-blue" style="margin-left:8px;">${s.stage_classification}</span>` : ''}
+                            ${s.clinician_confirmed ? '<span class="badge badge-green" style="margin-left:8px;">✓ Confirmed</span>' : '<span class="badge badge-yellow" style="margin-left:8px;">Pending Review</span>'}
+                        </div>
+                    </div>
+                    <div style="text-align:right;">
+                        ${s.area_cm2 != null ? `<div style="font-size:13px;color:#718096;">${s.area_cm2.toFixed(2)} cm²</div>` : ''}
+                        ${s.par_from_baseline != null ? `<div style="font-size:13px;color:${s.par_from_baseline>=20?'#38a169':'#c53030'};">PAR: ${s.par_from_baseline.toFixed(1)}%</div>` : ''}
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function renderDemoTimeline() {
+        const demoScans = [
+            {created_at: new Date(Date.now()-21*86400000).toISOString(), severity_score: 3.2, stage_classification:'Stage 3', area_cm2:8.4, par_from_baseline:null, clinician_confirmed:true},
+            {created_at: new Date(Date.now()-14*86400000).toISOString(), severity_score: 2.9, stage_classification:'Stage 3', area_cm2:7.1, par_from_baseline:15.5, clinician_confirmed:true},
+            {created_at: new Date(Date.now()-7*86400000).toISOString(), severity_score: 2.5, stage_classification:'Stage 2', area_cm2:6.0, par_from_baseline:28.6, clinician_confirmed:false},
+            {created_at: new Date().toISOString(), severity_score: 2.1, stage_classification:'Stage 2', area_cm2:5.2, par_from_baseline:38.1, clinician_confirmed:false},
+        ];
+        renderTimelineChart(demoScans);
+        renderTimelineScanList(demoScans);
+    }
+
+    // ── Admin Section ───────────────────────────────────────────────────────────
+    async function loadAuditLogs() {
+        const tbody = document.getElementById('audit-log-tbody');
+        if (!tbody) return;
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#718096;">Loading...</td></tr>';
+        try {
+            const resp = await fetch(API + '/admin/audit-logs?limit=50', {headers: authHeaders()});
+            if (!resp.ok) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#c53030;">Admin access required</td></tr>'; return; }
+            const logs = await resp.json();
+            tbody.innerHTML = logs.map(l => `
+                <tr>
+                    <td>${new Date(l.created_at).toLocaleString()}</td>
+                    <td>${l.user_id.substring(0,8)}...</td>
+                    <td>${l.action}</td>
+                    <td>${l.resource_type}</td>
+                    <td>${l.resource_id.substring(0,8)}...</td>
+                    <td>${l.ip_address || '—'}</td>
+                </tr>
+            `).join('');
+        } catch(e) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#c53030;">API unavailable</td></tr>'; }
+    }
+
+    // ── AI Results: Confirm / Override ─────────────────────────────────────────
+    let currentScanId = null;
+    function showConfirmOverride(scanId, severityScore, stage) {
+        currentScanId = scanId;
+        document.getElementById('current-severity-display').textContent = severityScore ? severityScore.toFixed(1) : 'N/A';
+        document.getElementById('current-stage-display').textContent = stage || 'N/A';
+        document.getElementById('confirm-override-panel').style.display = 'block';
+    }
+
+    async function confirmScan() {
+        if (!currentScanId) return;
+        try {
+            const resp = await fetch(API + '/scans/'+currentScanId+'/confirm', {
+                method: 'PATCH',
+                headers: {...authHeaders(), 'Content-Type':'application/json'},
+                body: JSON.stringify({confirmed_by: currentUser?.id || 'clinician'})
+            });
+            if (resp.ok) {
+                alert('✅ Scan confirmed by clinician.');
+                document.getElementById('confirm-override-panel').style.display = 'none';
+            }
+        } catch(e) { alert('Confirm failed: ' + e.message); }
+    }
+
+    async function overrideScan() {
+        if (!currentScanId) return;
+        const reason = prompt('Enter override reason:');
+        if (!reason) return;
+        const newScore = prompt('Override severity score (leave blank to keep AI score):');
+        const newStage = prompt('Override stage (leave blank to keep AI stage):');
+        try {
+            const body = {
+                override_reason: reason,
+                confirmed_by: currentUser?.id || 'clinician',
+            };
+            if (newScore) body.override_severity_score = parseFloat(newScore);
+            if (newStage) body.override_stage = newStage;
+            const resp = await fetch(API + '/scans/'+currentScanId+'/override', {
+                method: 'PATCH',
+                headers: {...authHeaders(), 'Content-Type':'application/json'},
+                body: JSON.stringify(body)
+            });
+            if (resp.ok) {
+                alert('✅ AI result overridden and documented.');
+                document.getElementById('confirm-override-panel').style.display = 'none';
+            }
+        } catch(e) { alert('Override failed: ' + e.message); }
+    }
+
+    // ── Override showPage to handle new pages ──────────────────────────────────
+    const _origShowPage = showPage;
+    window.showPage = function(page) {
+        // Close alert dropdown
+        alertDropdownOpen = false;
+        document.getElementById('alert-dropdown').classList.remove('open');
+        _origShowPage(page);
+        if (page === 'patients') { showPage('patients-dashboard'); return; }
+        if (page === 'patients-dashboard') loadPatients();
+        if (page === 'wound-timeline') {} // handled by viewWoundTimeline
+        if (page === 'admin') loadAuditLogs();
+    };
+
+    // ── Camera capture using getUserMedia ─────────────────────────────────────
+    let cameraStream = null;
+    async function startCamera() {
+        const videoEl = document.getElementById('camera-video');
+        if (!videoEl) return;
+        try {
+            cameraStream = await navigator.mediaDevices.getUserMedia({video: {facingMode:'environment'}, audio: false});
+            videoEl.srcObject = cameraStream;
+            videoEl.play();
+            document.getElementById('camera-placeholder').style.display = 'none';
+            videoEl.style.display = 'block';
+            document.getElementById('capture-btn').style.display = 'inline-block';
+        } catch(e) {
+            document.getElementById('camera-placeholder').innerHTML = '<div class="camera-icon">📷</div><p>Camera access denied or unavailable.<br>Please use the file upload instead.</p>';
+        }
+    }
+
+    function capturePhoto() {
+        const videoEl = document.getElementById('camera-video');
+        if (!videoEl || !cameraStream) return;
+        const canvas = document.createElement('canvas');
+        canvas.width = videoEl.videoWidth;
+        canvas.height = videoEl.videoHeight;
+        canvas.getContext('2d').drawImage(videoEl, 0, 0);
+        canvas.toBlob(blob => {
+            const file = new File([blob], 'wound-capture.jpg', {type:'image/jpeg'});
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            const fileInput = document.getElementById('scan-image-input');
+            if (fileInput) fileInput.files = dt.files;
+            document.getElementById('capture-preview').innerHTML = `<img src="${URL.createObjectURL(blob)}" style="max-width:200px;border-radius:8px;"/>`;
+            document.getElementById('camera-captured-indicator').style.display = 'block';
+        }, 'image/jpeg', 0.9);
+    }
+
+    // ── Initialize on load ──────────────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', () => {
+        // Show login if not authenticated
+        initAuth();
+        // Refresh alert count every 60s
+        setInterval(loadUnreadAlerts, 60000);
+    });
 </script>
 </body>
 </html>

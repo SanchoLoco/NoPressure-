@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
 from sqlalchemy.orm import Session
 from typing import Optional, List
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 from ..models.base import get_db
 from ..models.scan import Scan, AuditLog
@@ -11,11 +11,14 @@ from ..services.ai_engine import ai_engine
 from ..services.treatment_engine import treatment_engine
 from ..services.analytics import analytics_service
 from ..core.config import settings
+from ..core.security import get_current_user
 
 router = APIRouter(prefix="/scans", tags=["scans"])
 
 
 class ScanResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     wound_id: str
     scanned_by: str
@@ -32,10 +35,28 @@ class ScanResponse(BaseModel):
     par_from_baseline: Optional[float]
     sub_epidermal_risk: bool
     clinical_notes: Optional[str]
+    severity_score: Optional[float]
+    stage_classification: Optional[str]
+    ai_confidence: Optional[float]
+    model_version: Optional[str]
+    clinician_confirmed: bool
+    confirmed_by: Optional[str]
+    confirmed_at: Optional[datetime]
+    override_reason: Optional[str]
+    override_severity_score: Optional[float]
+    override_stage: Optional[str]
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+
+class ConfirmRequest(BaseModel):
+    confirmed_by: str
+
+
+class OverrideRequest(BaseModel):
+    override_reason: str
+    override_severity_score: Optional[float] = None
+    override_stage: Optional[str] = None
+    confirmed_by: str
 
 
 @router.post("/{wound_id}/scan", response_model=ScanResponse, status_code=status.HTTP_201_CREATED)
@@ -47,6 +68,7 @@ async def create_scan(
     clinical_notes: Optional[str] = Form(None),
     image: UploadFile = File(...),
     db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
     """
     Create a new wound scan with AI analysis.
@@ -59,12 +81,13 @@ async def create_scan(
     # Read image data
     image_data = await image.read()
 
-    # Run AI analysis
+    # Run AI analysis (includes external classifier call)
     try:
         analysis = ai_engine.analyze_wound_image(
             image_data=image_data,
             has_calibration_marker=has_calibration_marker,
             capture_angle=capture_angle,
+            wound_id=wound_id,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -119,12 +142,16 @@ async def create_scan(
             "urgency": rec.urgency,
         },
         dressing_recommendation=rec.primary_dressing,
+        # Classifier results
+        severity_score=analysis.severity_score,
+        stage_classification=analysis.stage_classification,
+        ai_confidence=analysis.ai_confidence,
+        model_version=analysis.model_version,
     )
     db.add(scan)
 
     # Check if wound is stalled (after 4 weeks with <20% PAR)
     if par is not None and previous_scans:
-        from ..models.scan import Scan as ScanModel
         baseline_scan = previous_scans[0]
         days = (datetime.utcnow() - baseline_scan.created_at).days
         if ai_engine.is_wound_stalled(par, days):
@@ -144,11 +171,23 @@ async def create_scan(
 
     db.commit()
     db.refresh(scan)
+
+    # Evaluate alerts after scan is committed
+    try:
+        from ..services.alert_engine import evaluate_alerts
+        evaluate_alerts(wound_id=wound_id, db=db)
+    except Exception:
+        pass  # Alerts are non-critical
+
     return scan
 
 
 @router.get("/{scan_id}", response_model=ScanResponse)
-def get_scan(scan_id: str, db: Session = Depends(get_db)):
+def get_scan(
+    scan_id: str,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     scan = db.query(Scan).filter(Scan.id == scan_id).first()
     if not scan:
         raise HTTPException(status_code=404, detail="Scan not found")
@@ -156,6 +195,53 @@ def get_scan(scan_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/wound/{wound_id}", response_model=List[ScanResponse])
-def get_wound_scans(wound_id: str, db: Session = Depends(get_db)):
+def get_wound_scans(
+    wound_id: str,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     """Get all scans for a wound - supports time-lapse comparison."""
     return db.query(Scan).filter(Scan.wound_id == wound_id).order_by(Scan.created_at).all()
+
+
+@router.patch("/{scan_id}/confirm", response_model=ScanResponse)
+def confirm_scan(
+    scan_id: str,
+    req: ConfirmRequest,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Clinician confirms AI results for a scan."""
+    scan = db.query(Scan).filter(Scan.id == scan_id).first()
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+    scan.clinician_confirmed = True
+    scan.confirmed_by = req.confirmed_by
+    scan.confirmed_at = datetime.utcnow()
+    db.commit()
+    db.refresh(scan)
+    return scan
+
+
+@router.patch("/{scan_id}/override", response_model=ScanResponse)
+def override_scan(
+    scan_id: str,
+    req: OverrideRequest,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Clinician overrides AI results with a documented reason."""
+    scan = db.query(Scan).filter(Scan.id == scan_id).first()
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+    scan.clinician_confirmed = True
+    scan.confirmed_by = req.confirmed_by
+    scan.confirmed_at = datetime.utcnow()
+    scan.override_reason = req.override_reason
+    if req.override_severity_score is not None:
+        scan.override_severity_score = req.override_severity_score
+    if req.override_stage is not None:
+        scan.override_stage = req.override_stage
+    db.commit()
+    db.refresh(scan)
+    return scan

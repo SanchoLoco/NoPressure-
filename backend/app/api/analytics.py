@@ -1,11 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
+from datetime import datetime
 from ..models.base import get_db
 from ..models.wound import Wound
 from ..models.scan import Scan
 from ..services.analytics import analytics_service
+from ..core.security import get_current_user
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -29,8 +31,23 @@ class FacilityDashboardResponse(BaseModel):
     wound_by_etiology: dict
 
 
+class TimelineEntry(BaseModel):
+    scan_id: str
+    created_at: datetime
+    severity_score: Optional[float]
+    stage_classification: Optional[str]
+    area_cm2: Optional[float]
+    par_from_baseline: Optional[float]
+    image_url: Optional[str]
+    clinician_confirmed: bool
+
+
 @router.get("/wound/{wound_id}/trend", response_model=HealingTrendResponse)
-def get_healing_trend(wound_id: str, db: Session = Depends(get_db)):
+def get_healing_trend(
+    wound_id: str,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     """
     Calculate healing trend for a wound.
     Triggers stalled wound alert if PAR < 20% over 4 weeks.
@@ -64,7 +81,11 @@ def get_healing_trend(wound_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/facility/{facility_id}/dashboard", response_model=FacilityDashboardResponse)
-def get_facility_dashboard(facility_id: str, db: Session = Depends(get_db)):
+def get_facility_dashboard(
+    facility_id: str,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     """
     Centralized command center for head nurses/physicians.
     Shows entire facility wound burden at a glance.
@@ -90,3 +111,37 @@ def get_facility_dashboard(facility_id: str, db: Session = Depends(get_db)):
         stalled_wounds=len(stalled_wounds),
         wound_by_etiology=etiology_counts,
     )
+
+
+@router.get("/wound/{wound_id}/timeline", response_model=List[TimelineEntry])
+def get_wound_timeline(
+    wound_id: str,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    Returns chronological array of all scans with severity scores, stages,
+    dates, and image URLs for frontend charting.
+    """
+    scans = (
+        db.query(Scan)
+        .filter(Scan.wound_id == wound_id)
+        .order_by(Scan.created_at)
+        .all()
+    )
+    if not scans:
+        raise HTTPException(status_code=404, detail="No scans found for this wound")
+
+    return [
+        TimelineEntry(
+            scan_id=s.id,
+            created_at=s.created_at,
+            severity_score=s.severity_score,
+            stage_classification=s.stage_classification,
+            area_cm2=s.area_cm2,
+            par_from_baseline=s.par_from_baseline,
+            image_url=s.image_url,
+            clinician_confirmed=s.clinician_confirmed or False,
+        )
+        for s in scans
+    ]

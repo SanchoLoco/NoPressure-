@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Boolean, Text
+from sqlalchemy import Column, String, Boolean, Text, DateTime
 from .base import Base, TimestampMixin, generate_uuid
 
 
@@ -7,6 +7,7 @@ class UserRole:
     PHYSICIAN = "physician"
     HEAD_NURSE = "head_nurse"
     ADMIN = "admin"
+    QUALITY_OFFICER = "quality_officer"
 
 
 class User(Base, TimestampMixin):
@@ -21,3 +22,5 @@ class User(Base, TimestampMixin):
     facility_id = Column(String(50), nullable=True, index=True)
     is_active = Column(Boolean, default=True)
     license_number = Column(String(100), nullable=True)
+    last_login = Column(DateTime, nullable=True)
+    refresh_token = Column(String(500), nullable=True)

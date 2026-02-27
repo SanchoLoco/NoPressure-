@@ -1,0 +1,44 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: nopressure
+      POSTGRES_PASSWORD: nopressure_dev_password
+      POSTGRES_DB: nopressure
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nopressure"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql://nopressure:nopressure_dev_password@db:5432/nopressure
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+      CLASSIFIER_MOCK_MODE: ${CLASSIFIER_MOCK_MODE:-true}
+      CLASSIFIER_API_URL: ${CLASSIFIER_API_URL:-}
+      CLASSIFIER_API_KEY: ${CLASSIFIER_API_KEY:-}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
