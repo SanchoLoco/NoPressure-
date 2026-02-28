@@ -620,6 +620,10 @@
                 <h2>Patient & Wound Information</h2>
                 <div class="grid-2">
                     <div class="form-group">
+                        <label>Patient ID (required before capture)</label>
+                        <input type="text" id="scan-patient-id" placeholder="Enter patient ID / MRN">
+                    </div>
+                    <div class="form-group">
                         <label>Patient</label>
                         <select id="scan-patient">
                             <option value="">Select patient...</option>
@@ -643,14 +647,16 @@
                     <div class="form-group">
                         <label>Body Location</label>
                         <select id="scan-location">
+                            <option value="">Select location...</option>
                             <option value="sacrum">Sacrum</option>
                             <option value="left_heel">Left Heel</option>
                             <option value="right_heel">Right Heel</option>
-                            <option value="left_foot">Left Foot</option>
-                            <option value="right_foot">Right Foot</option>
-                            <option value="left_shin">Left Shin</option>
-                            <option value="right_shin">Right Shin</option>
-                            <option value="abdomen">Abdomen</option>
+                            <option value="left_ischium">Left Ischium</option>
+                            <option value="right_ischium">Right Ischium</option>
+                            <option value="trochanter">Trochanter</option>
+                            <option value="occiput">Occiput</option>
+                            <option value="shoulder">Shoulder</option>
+                            <option value="elbow">Elbow</option>
                             <option value="other">Other</option>
                         </select>
                     </div>
@@ -1242,6 +1248,10 @@
 
     // AI Scan simulation
     function runAIScan() {
+        if (!intakeReady()) {
+            alert('Please enter Patient ID and anatomical location before running AI analysis.');
+            return;
+        }
         const results = document.getElementById('ai-results-card');
         results.style.display = 'block';
         // Simulate different results
@@ -1771,9 +1781,19 @@
         if (page === 'admin') loadAuditLogs();
     };
 
+    function intakeReady() {
+        const patientId = (document.getElementById('scan-patient-id')?.value || '').trim();
+        const location = document.getElementById('scan-location')?.value || '';
+        return patientId.length > 0 && location.length > 0;
+    }
+
     // ── Camera capture using getUserMedia ─────────────────────────────────────
     let cameraStream = null;
     async function startCamera() {
+        if (!intakeReady()) {
+            alert('Please enter Patient ID and select anatomical location before capturing.');
+            return;
+        }
         const videoEl = document.getElementById('camera-video');
         if (!videoEl) return;
         try {

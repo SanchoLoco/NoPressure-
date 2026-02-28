@@ -57,6 +57,9 @@ class ScanAnalysisResult:
     # Classifier results (populated if external classifier is available)
     severity_score: Optional[float] = None
     stage_classification: Optional[str] = None
+    npiap_stage: Optional[int] = None
+    sub_severity_score: Optional[float] = None
+    severity_color: Optional[str] = None
     ai_confidence: Optional[float] = None
     model_version: Optional[str] = None
 
@@ -117,6 +120,9 @@ class AIWoundEngine:
         stage_classification = None
         ai_confidence = None
         model_version = None
+        npiap_stage = None
+        sub_severity_score = None
+        severity_color = None
         try:
             from .classifier_client import classifier_client
             classifier_result = classifier_client.classify(
@@ -131,6 +137,29 @@ class AIWoundEngine:
         except Exception:
             pass  # Classifier is optional; proceed without it
 
+        if stage_classification and stage_classification.lower().startswith("stage"):
+            try:
+                npiap_stage = int(stage_classification.split()[-1])
+            except Exception:
+                npiap_stage = None
+
+        # Fallback to internal heuristic if external classifier is unavailable
+        if severity_score is None or stage_classification is None or npiap_stage is None:
+            npiap_stage = self.classify_npiap_stage(
+                tissue=tissue,
+                sub_epidermal=sub_epidermal,
+                depth_cm=measurements.depth_cm,
+            )
+            stage_classification = f"Stage {npiap_stage}"
+            severity_score = self.calculate_sub_severity(
+                stage=npiap_stage,
+                tissue=tissue,
+                depth_cm=measurements.depth_cm,
+            )
+
+        sub_severity_score = severity_score
+        severity_color = self._map_severity_color(severity_score)
+
         return ScanAnalysisResult(
             measurements=measurements,
             tissue=tissue,
@@ -142,6 +171,9 @@ class AIWoundEngine:
             periwound_condition=periwound,
             severity_score=severity_score,
             stage_classification=stage_classification,
+            npiap_stage=npiap_stage,
+            sub_severity_score=sub_severity_score,
+            severity_color=severity_color,
             ai_confidence=ai_confidence,
             model_version=model_version,
         )
@@ -251,6 +283,69 @@ class AIWoundEngine:
         Alert if wound doesn't shrink by threshold_pct in threshold_days days.
         """
         return days_elapsed >= threshold_days and par < threshold_pct
+
+    def classify_npiap_stage(
+        self,
+        tissue: TissueSegmentation,
+        sub_epidermal: SubEpidermalAnalysis,
+        depth_cm: Optional[float] = None,
+    ) -> int:
+        """
+        Heuristic NPIAP staging based on tissue mix, depth, and early-stage markers.
+        Stage mapping:
+          1: Non-blanchable erythema / intact skin (sub-epidermal risk)
+          2: Partial-thickness (minimal eschar/slough, shallow depth)
+          3: Full-thickness with visible slough
+          4: Full-thickness with exposed tissue/necrosis (eschar-heavy)
+        """
+        if sub_epidermal.risk_level and sub_epidermal.risk_level != "none":
+            return 1
+
+        eschar = tissue.eschar_pct
+        slough = tissue.slough_pct
+        depth_cm = depth_cm or 0.0
+
+        if eschar >= 20.0 or depth_cm >= 1.5:
+            return 4
+        if slough >= 25.0 or depth_cm >= 0.8:
+            return 3
+        if slough >= 10.0 or eschar >= 5.0:
+            return 2
+        return 2 if depth_cm >= 0.3 else 1
+
+    def calculate_sub_severity(
+        self,
+        stage: int,
+        tissue: TissueSegmentation,
+        depth_cm: Optional[float] = None,
+    ) -> float:
+        """
+        Provide decimal granularity within a stage (e.g., 3.2).
+        Uses burden of necrotic/slough tissue and wound depth to modulate severity.
+        """
+        if stage < 1 or stage > 4:
+            raise ValueError("Stage must be between 1 and 4")
+
+        burden_score = min(1.0, (tissue.eschar_pct + tissue.slough_pct) / 100.0)
+        depth_factor = min(1.0, (depth_cm or 0.0) / 2.0)
+        decimal = round((burden_score * 0.6 + depth_factor * 0.4), 1)
+
+        # Keep decimal within 0.0-0.9 to avoid rolling over to next stage
+        decimal = min(0.9, max(0.0, decimal))
+        total = round(stage + decimal, 1)
+        return min(total, 4.0)
+
+    def _map_severity_color(self, severity_score: Optional[float]) -> Optional[str]:
+        """Color coding: Green (1.0-1.9), Orange (2.0-2.9), Red (3.0-4.0)."""
+        if severity_score is None:
+            return None
+        if severity_score >= 3.0:
+            return "red"
+        if severity_score >= 2.0:
+            return "orange"
+        if severity_score >= 1.0:
+            return "green"
+        return None
 
 
 ai_engine = AIWoundEngine()

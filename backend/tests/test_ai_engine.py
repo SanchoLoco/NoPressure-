@@ -1,5 +1,10 @@
 import pytest
-from app.services.ai_engine import AIWoundEngine, TissueSegmentation, WoundMeasurements
+from app.services.ai_engine import (
+    AIWoundEngine,
+    TissueSegmentation,
+    WoundMeasurements,
+    SubEpidermalAnalysis,
+)
 
 
 class TestAIWoundEngine:
@@ -64,6 +69,53 @@ class TestAIWoundEngine:
                 eschar_pct=10.0,
                 epithelial_pct=10.0,
             )
+
+    def test_classify_npiap_stage_eschar_drives_stage4(self):
+        tissue = TissueSegmentation(
+            granulation_pct=30.0,
+            slough_pct=20.0,
+            eschar_pct=40.0,
+            epithelial_pct=10.0,
+        )
+        stage = self.engine.classify_npiap_stage(
+            tissue=tissue,
+            sub_epidermal=self.engine._analyze_sub_epidermal(b"", None),
+            depth_cm=2.0,
+        )
+        assert stage == 4
+
+    def test_classify_npiap_stage_sub_epidermal_sets_stage1(self):
+        tissue = TissueSegmentation(
+            granulation_pct=70.0,
+            slough_pct=10.0,
+            eschar_pct=0.0,
+            epithelial_pct=20.0,
+        )
+        sub_epidermal = SubEpidermalAnalysis(
+            persistent_redness_detected=True,
+            temperature_delta_celsius=0.5,
+            risk_level="low",
+            recommendation="monitor",
+        )
+        stage = self.engine.classify_npiap_stage(
+            tissue=tissue, sub_epidermal=sub_epidermal, depth_cm=0.1
+        )
+        assert stage == 1
+
+    def test_sub_severity_decimal_score(self):
+        tissue = TissueSegmentation(
+            granulation_pct=20.0,
+            slough_pct=50.0,
+            eschar_pct=20.0,
+            epithelial_pct=10.0,
+        )
+        score = self.engine.calculate_sub_severity(stage=3, tissue=tissue, depth_cm=1.0)
+        assert 3.0 < score < 3.9
+
+    def test_severity_color_mapping(self):
+        assert self.engine._map_severity_color(1.5) == "green"
+        assert self.engine._map_severity_color(2.5) == "orange"
+        assert self.engine._map_severity_color(3.5) == "red"
 
 
 class TestTreatmentEngine:
@@ -148,3 +200,30 @@ class TestAnalyticsService:
     def test_empty_scan_history_raises(self):
         with pytest.raises(ValueError, match="No scan history"):
             self.service.calculate_healing_trend("wound-3", [])
+
+
+class TestDeteriorationPrediction:
+    def setup_method(self):
+        from app.services.analytics import AnalyticsService
+        self.service = AnalyticsService()
+
+    def test_requires_five_days(self):
+        from datetime import datetime, timedelta
+        scans = [
+            {"area_cm2": 10.0, "created_at": datetime.utcnow() - timedelta(days=2)},
+            {"area_cm2": 9.0, "created_at": datetime.utcnow() - timedelta(days=1)},
+        ]
+        with pytest.raises(ValueError):
+            self.service.predict_deterioration("wound-4", scans)
+
+    def test_predicts_probability_with_confidence(self):
+        from datetime import datetime, timedelta
+        scans = []
+        today = datetime.utcnow()
+        for i, area in enumerate([10.0, 10.5, 11.0, 11.2, 11.5]):
+            scans.append({"area_cm2": area, "created_at": today - timedelta(days=4 - i)})
+
+        prediction = self.service.predict_deterioration("wound-5", scans)
+        assert 0.0 <= prediction.risk_probability <= 1.0
+        assert prediction.prediction_horizon_hours == 72
+        assert prediction.confidence_interval_pct > 0

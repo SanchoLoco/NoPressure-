@@ -1,3 +1,4 @@
+from typing import Optional
 from sqlalchemy import Column, String, Float, Text, Boolean, ForeignKey, JSON, Integer, DateTime
 from sqlalchemy.orm import relationship
 from .base import Base, TimestampMixin, generate_uuid
@@ -77,6 +78,51 @@ class Scan(Base, TimestampMixin):
 
     wound = relationship("Wound", back_populates="scans")
     audit_logs = relationship("AuditLog", back_populates="scan", cascade="all, delete-orphan")
+
+    @property
+    def npiap_stage(self) -> Optional[int]:
+        if hasattr(self, "_npiap_stage"):
+            return getattr(self, "_npiap_stage")
+        if self.stage_classification and self.stage_classification.lower().startswith("stage"):
+            try:
+                return int(self.stage_classification.split()[-1])
+            except Exception:
+                return None
+        return None
+
+    @npiap_stage.setter
+    def npiap_stage(self, value):
+        self._npiap_stage = value
+
+    @property
+    def sub_severity_score(self) -> Optional[float]:
+        return getattr(self, "_sub_severity_score", self.severity_score)
+
+    @sub_severity_score.setter
+    def sub_severity_score(self, value):
+        self._sub_severity_score = value
+
+    @property
+    def severity_color(self) -> Optional[str]:
+        if hasattr(self, "_severity_color"):
+            return getattr(self, "_severity_color")
+        return self._map_color(self.sub_severity_score)
+
+    @severity_color.setter
+    def severity_color(self, value):
+        self._severity_color = value
+
+    @staticmethod
+    def _map_color(score: Optional[float]) -> Optional[str]:
+        if score is None:
+            return None
+        if score >= 3.0:
+            return "red"
+        if score >= 2.0:
+            return "orange"
+        if score >= 1.0:
+            return "green"
+        return None
 
 
 class AuditLog(Base, TimestampMixin):

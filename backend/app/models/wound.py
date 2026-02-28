@@ -19,6 +19,32 @@ class WoundEtiology:
     ]
 
 
+class AnatomicalLocation:
+    SACRUM = "sacrum"
+    LEFT_HEEL = "left_heel"
+    RIGHT_HEEL = "right_heel"
+    LEFT_ISCHIUM = "left_ischium"
+    RIGHT_ISCHIUM = "right_ischium"
+    TROCHANTER = "trochanter"
+    OCCIPUT = "occiput"
+    SHOULDER = "shoulder"
+    ELBOW = "elbow"
+    OTHER = "other"
+
+    ALL = [
+        SACRUM,
+        LEFT_HEEL,
+        RIGHT_HEEL,
+        LEFT_ISCHIUM,
+        RIGHT_ISCHIUM,
+        TROCHANTER,
+        OCCIPUT,
+        SHOULDER,
+        ELBOW,
+        OTHER,
+    ]
+
+
 class WoundStatus:
     ACTIVE = "active"
     HEALING = "healing"

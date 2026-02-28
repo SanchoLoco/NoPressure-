@@ -30,6 +30,15 @@ class FacilityWoundBurden:
     dressing_usage_summary: Dict[str, int]
 
 
+@dataclass
+class DeteriorationPrediction:
+    wound_id: str
+    risk_probability: float  # 0-1
+    confidence_interval_pct: float
+    prediction_horizon_hours: int = 72
+    rationale: str = "Trend-based risk estimate over 5-day window"
+
+
 class AnalyticsService:
     """
     Wound healing analytics engine.
@@ -121,6 +130,54 @@ class AnalyticsService:
             return None  # Not healing
 
         return int(current_area / area_change_per_day)
+
+    def predict_deterioration(
+        self,
+        wound_id: str,
+        scan_history: List[Dict],
+    ) -> DeteriorationPrediction:
+        """
+        Estimate probability of deterioration in the next 72 hours.
+        Requires at least 5 consecutive days of imagery.
+        """
+        if len(scan_history) < 5:
+            raise ValueError("At least 5 daily scans are required for prediction")
+
+        sorted_scans = sorted(
+            scan_history, key=lambda s: s.get("created_at", datetime.utcnow())
+        )
+        start_date = sorted_scans[0].get("created_at", datetime.utcnow())
+        end_date = sorted_scans[-1].get("created_at", datetime.utcnow())
+        if not all(isinstance(d.get("created_at", datetime.utcnow()), datetime) for d in sorted_scans):
+            raise ValueError("Scan history must include datetime stamps")
+
+        if (end_date - start_date).days < 4:
+            raise ValueError("Scans must cover at least five consecutive days")
+
+        recent_scans = sorted_scans[-5:]
+        trend = self.calculate_healing_trend(wound_id, recent_scans)
+        areas = [s.get("area_cm2", 0) for s in recent_scans]
+        days_span = max((recent_scans[-1]["created_at"] - recent_scans[0]["created_at"]).days, 1)
+        slope = (areas[-1] - areas[0]) / days_span
+
+        deterioration_factor = 0.0
+        if trend.trend_direction == "deteriorating":
+            deterioration_factor += 0.25
+        if trend.par_percentage < 0:
+            deterioration_factor += 0.2
+        if slope > 0:
+            deterioration_factor += min(0.3, slope / 10)
+
+        baseline_risk = 0.1
+        risk_probability = max(0.0, min(1.0, baseline_risk + deterioration_factor))
+
+        confidence_interval_pct = max(5.0, 30.0 - len(recent_scans) * 2.0)
+
+        return DeteriorationPrediction(
+            wound_id=wound_id,
+            risk_probability=round(risk_probability, 2),
+            confidence_interval_pct=round(confidence_interval_pct, 1),
+        )
 
 
 analytics_service = AnalyticsService()
