@@ -1,12 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel, ConfigDict
 from datetime import datetime
+from io import BytesIO
 from ..models.base import get_db
 from ..models.wound import Wound
 from ..models.scan import Scan
 from ..services.analytics import analytics_service
+from ..services.report_generator import report_generator
 from ..core.security import get_current_user
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
@@ -186,4 +189,64 @@ def get_deterioration_prediction(
         confidence_interval_pct=prediction.confidence_interval_pct,
         prediction_horizon_hours=prediction.prediction_horizon_hours,
         rationale=prediction.rationale,
+    )
+
+
+@router.get("/wound/{wound_id}/report")
+def get_wound_report(
+    wound_id: str,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Generate a PDF wound assessment report for download or EHR attachment."""
+    from ..models.patient import Patient
+
+    wound = db.query(Wound).filter(Wound.id == wound_id).first()
+    if not wound:
+        raise HTTPException(status_code=404, detail="Wound not found")
+
+    patient = db.query(Patient).filter(Patient.id == wound.patient_id).first()
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    scans = (
+        db.query(Scan)
+        .filter(Scan.wound_id == wound_id)
+        .order_by(Scan.created_at)
+        .all()
+    )
+    if not scans:
+        raise HTTPException(status_code=404, detail="No scans found for this wound")
+
+    scan_dicts = [
+        {
+            "created_at": s.created_at,
+            "scanned_by": s.scanned_by,
+            "area_cm2": s.area_cm2,
+            "par_from_baseline": s.par_from_baseline,
+            "severity_score": s.severity_score,
+            "stage_classification": s.stage_classification,
+            "tissue_granulation_pct": s.tissue_granulation_pct,
+            "tissue_slough_pct": s.tissue_slough_pct,
+            "tissue_eschar_pct": s.tissue_eschar_pct,
+            "treatment_recommendation": s.treatment_recommendation,
+            "clinical_notes": s.clinical_notes,
+        }
+        for s in scans
+    ]
+
+    pdf_bytes = report_generator.generate(
+        patient_name=f"{patient.first_name} {patient.last_name}",
+        patient_mrn=patient.mrn or "",
+        wound_id=wound_id,
+        wound_etiology=wound.etiology,
+        wound_location=wound.body_location or "Not specified",
+        scans=scan_dicts,
+        generated_by=getattr(current_user, "username", "system"),
+    )
+
+    return StreamingResponse(
+        BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=wound_report_{wound_id}.pdf"},
     )

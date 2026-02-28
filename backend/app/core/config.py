@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     # EHR Integration
     FHIR_BASE_URL: Optional[str] = None
     EHR_API_KEY: Optional[str] = None
+    FHIR_PUSH_ENABLED: bool = False  # Enable to push observations to EHR after each scan
 
     # Wound healing thresholds
     STALLED_WOUND_PAR_THRESHOLD: float = 20.0  # <20% area reduction in 4 weeks = stalled
