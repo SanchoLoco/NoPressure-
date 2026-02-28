@@ -4,7 +4,7 @@ from typing import List, Optional, Dict
 from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 from ..models.base import get_db
-from ..models.wound import Wound, WoundEtiology, WoundStatus
+from ..models.wound import Wound, WoundEtiology, WoundStatus, AnatomicalLocation
 from ..models.scan import Scan
 from ..models.base import generate_uuid
 from ..core.security import get_current_user
@@ -63,6 +63,11 @@ def create_wound(
     _require_patient_access(current_user)
     if wound_in.etiology not in WoundEtiology.ALL:
         raise HTTPException(status_code=400, detail=f"Invalid etiology. Choose from: {WoundEtiology.ALL}")
+    if wound_in.body_location and wound_in.body_location not in AnatomicalLocation.ALL:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid anatomical location. Choose from: {AnatomicalLocation.ALL}",
+        )
     wound = Wound(id=generate_uuid(), **wound_in.dict())
     db.add(wound)
     db.commit()
@@ -141,6 +146,11 @@ def update_wound_location(
     wound = db.query(Wound).filter(Wound.id == wound_id).first()
     if not wound:
         raise HTTPException(status_code=404, detail="Wound not found")
+    if body_location not in AnatomicalLocation.ALL:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid anatomical location. Choose from: {AnatomicalLocation.ALL}",
+        )
     wound.body_location = body_location
     wound.body_side = body_side
     if x_coord is not None and y_coord is not None:

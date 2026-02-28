@@ -42,6 +42,14 @@ class TimelineEntry(BaseModel):
     clinician_confirmed: bool
 
 
+class DeteriorationPredictionResponse(BaseModel):
+    wound_id: str
+    risk_probability: float
+    confidence_interval_pct: float
+    prediction_horizon_hours: int
+    rationale: str
+
+
 @router.get("/wound/{wound_id}/trend", response_model=HealingTrendResponse)
 def get_healing_trend(
     wound_id: str,
@@ -145,3 +153,37 @@ def get_wound_timeline(
         )
         for s in scans
     ]
+
+
+@router.get("/wound/{wound_id}/deterioration", response_model=DeteriorationPredictionResponse)
+def get_deterioration_prediction(
+    wound_id: str,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Predict probability of deterioration within 72 hours (requires 5+ daily scans)."""
+    scans = (
+        db.query(Scan)
+        .filter(Scan.wound_id == wound_id)
+        .order_by(Scan.created_at)
+        .all()
+    )
+    if not scans:
+        raise HTTPException(status_code=404, detail="No scans found for this wound")
+
+    scan_dicts = [
+        {"area_cm2": s.area_cm2, "created_at": s.created_at}
+        for s in scans
+    ]
+    try:
+        prediction = analytics_service.predict_deterioration(wound_id, scan_dicts)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return DeteriorationPredictionResponse(
+        wound_id=prediction.wound_id,
+        risk_probability=prediction.risk_probability,
+        confidence_interval_pct=prediction.confidence_interval_pct,
+        prediction_horizon_hours=prediction.prediction_horizon_hours,
+        rationale=prediction.rationale,
+    )

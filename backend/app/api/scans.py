@@ -46,6 +46,9 @@ class ScanResponse(BaseModel):
     override_severity_score: Optional[float]
     override_stage: Optional[str]
     created_at: datetime
+    sub_severity_score: Optional[float]
+    npiap_stage: Optional[int]
+    severity_color: Optional[str]
 
 
 class ConfirmRequest(BaseModel):
@@ -62,6 +65,7 @@ class OverrideRequest(BaseModel):
 @router.post("/{wound_id}/scan", response_model=ScanResponse, status_code=status.HTTP_201_CREATED)
 async def create_scan(
     wound_id: str,
+    patient_id: str = Form(...),
     scanned_by: str = Form(...),
     capture_angle: float = Form(90.0),
     has_calibration_marker: bool = Form(True),
@@ -77,6 +81,8 @@ async def create_scan(
     wound = db.query(Wound).filter(Wound.id == wound_id).first()
     if not wound:
         raise HTTPException(status_code=404, detail="Wound not found")
+    if wound.patient_id != patient_id:
+        raise HTTPException(status_code=400, detail="Patient ID mismatch for wound")
 
     # Read image data
     image_data = await image.read()
@@ -109,6 +115,7 @@ async def create_scan(
         etiology=wound.etiology,
         is_stalled=wound.is_stalled,
         sub_epidermal_risk=analysis.sub_epidermal.risk_level,
+        npiap_stage=analysis.npiap_stage,
     )
 
     # Create scan record
@@ -148,6 +155,10 @@ async def create_scan(
         ai_confidence=analysis.ai_confidence,
         model_version=analysis.model_version,
     )
+    # Non-persisted fields for response purposes
+    scan.sub_severity_score = analysis.sub_severity_score
+    scan.npiap_stage = analysis.npiap_stage
+    scan.severity_color = analysis.severity_color
     db.add(scan)
 
     # Check if wound is stalled (after 4 weeks with <20% PAR)

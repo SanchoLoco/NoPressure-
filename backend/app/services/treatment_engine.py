@@ -33,6 +33,7 @@ class TreatmentEngine:
         etiology: str,
         is_stalled: bool = False,
         sub_epidermal_risk: str = "none",
+        npiap_stage: Optional[int] = None,
     ) -> TreatmentRecommendation:
         """
         Generate treatment recommendation based on wound assessment.
@@ -78,6 +79,12 @@ class TreatmentEngine:
             interventions.append("Pressure-redistributing mattress")
             interventions.append("Nutritional assessment (protein, vitamin C, zinc)")
 
+        if npiap_stage:
+            interventions.append(f"NPIAP Stage {npiap_stage} protocol initiated")
+            if npiap_stage >= 3:
+                urgency = "urgent"
+                interventions.append("Consider surgical consult for full-thickness injury")
+
         # Stalled wound intervention
         if is_stalled:
             interventions.append("Wound not progressing - consider biopsy to rule out malignancy")
@@ -93,14 +100,19 @@ class TreatmentEngine:
             primary_dressing=primary_dressing,
             secondary_dressing=None,
             interventions=interventions,
-            rationale=self._build_rationale(granulation_pct, slough_pct, eschar_pct, exudate_level),
+            rationale=self._build_rationale(granulation_pct, slough_pct, eschar_pct, exudate_level, npiap_stage),
             urgency=urgency,
             referral_needed=referral_needed,
             referral_reason=referral_reason,
         )
 
     def _build_rationale(
-        self, granulation_pct: float, slough_pct: float, eschar_pct: float, exudate_level: str
+        self,
+        granulation_pct: float,
+        slough_pct: float,
+        eschar_pct: float,
+        exudate_level: str,
+        npiap_stage: Optional[int] = None,
     ) -> str:
         parts = []
         if eschar_pct > 0:
@@ -109,6 +121,8 @@ class TreatmentEngine:
             parts.append(f"{slough_pct:.0f}% slough requiring debridement")
         if granulation_pct > 0:
             parts.append(f"{granulation_pct:.0f}% healthy granulation tissue")
+        if npiap_stage:
+            parts.append(f"NPIAP Stage {npiap_stage}")
         parts.append(f"{exudate_level} exudate level")
         return "; ".join(parts) + "."
 
