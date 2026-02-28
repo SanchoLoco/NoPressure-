@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import Optional, List
 from pydantic import BaseModel, ConfigDict
 from datetime import datetime
+import logging
 from ..models.base import get_db
 from ..models.scan import Scan, AuditLog
 from ..models.wound import Wound, WoundStatus
@@ -13,6 +14,8 @@ from ..services.analytics import analytics_service
 from ..services.image_storage import image_storage
 from ..core.config import settings
 from ..core.security import get_current_user
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/scans", tags=["scans"])
 
@@ -171,7 +174,7 @@ async def create_scan(
         scan.image_url = img_result["image_url"]
         scan.image_hash = img_result["image_hash"]
     except Exception:
-        pass  # Image storage failure is non-blocking
+        logger.exception("Image storage failed for wound %s", wound_id)
 
     db.add(scan)
 
@@ -202,7 +205,7 @@ async def create_scan(
         from ..services.alert_engine import evaluate_alerts
         evaluate_alerts(wound_id=wound_id, db=db)
     except Exception:
-        pass  # Alerts are non-critical
+        logger.exception("Alert evaluation failed for wound %s", wound_id)
 
     # Push FHIR observation to EHR when enabled
     if settings.FHIR_PUSH_ENABLED and settings.FHIR_BASE_URL:
@@ -231,7 +234,7 @@ async def create_scan(
             )
             fhir_client.push_observation(fhir_obs)
         except Exception:
-            pass  # FHIR push failure is non-blocking
+            logger.exception("FHIR push failed for scan %s", scan.id)
 
     return scan
 

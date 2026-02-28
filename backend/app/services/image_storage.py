@@ -5,7 +5,7 @@ Supports local file storage for development and a pluggable cloud backend.
 """
 import hashlib
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from ..core.config import settings
@@ -52,7 +52,7 @@ class ImageStorageService:
         """Save to local ``uploads/`` directory for development."""
         wound_dir = os.path.join(self.base_dir, wound_id)
         os.makedirs(wound_dir, exist_ok=True)
-        ts = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+        ts = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
         filename = f"{scan_id}_{ts}.png"
         filepath = os.path.join(wound_dir, filename)
         with open(filepath, "wb") as fh:
