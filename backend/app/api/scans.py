@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import Optional, List
 from pydantic import BaseModel, ConfigDict
 from datetime import datetime
+import logging
 from ..models.base import get_db
 from ..models.scan import Scan, AuditLog
 from ..models.wound import Wound, WoundStatus
@@ -10,8 +11,11 @@ from ..models.base import generate_uuid
 from ..services.ai_engine import ai_engine
 from ..services.treatment_engine import treatment_engine
 from ..services.analytics import analytics_service
+from ..services.image_storage import image_storage
 from ..core.config import settings
 from ..core.security import get_current_user
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/scans", tags=["scans"])
 
@@ -159,6 +163,19 @@ async def create_scan(
     scan.sub_severity_score = analysis.sub_severity_score
     scan.npiap_stage = analysis.npiap_stage
     scan.severity_color = analysis.severity_color
+
+    # Store image (zero-footprint: secure storage, never on device gallery)
+    try:
+        img_result = image_storage.store(
+            image_data=image_data,
+            wound_id=wound_id,
+            scan_id=scan.id,
+        )
+        scan.image_url = img_result["image_url"]
+        scan.image_hash = img_result["image_hash"]
+    except Exception:
+        logger.exception("Image storage failed for wound %s", wound_id)
+
     db.add(scan)
 
     # Check if wound is stalled (after 4 weeks with <20% PAR)
@@ -188,7 +205,36 @@ async def create_scan(
         from ..services.alert_engine import evaluate_alerts
         evaluate_alerts(wound_id=wound_id, db=db)
     except Exception:
-        pass  # Alerts are non-critical
+        logger.exception("Alert evaluation failed for wound %s", wound_id)
+
+    # Push FHIR observation to EHR when enabled
+    if settings.FHIR_PUSH_ENABLED and settings.FHIR_BASE_URL:
+        try:
+            from ..services.ehr_integration import FHIRClient, FHIRObservation
+            fhir_client = FHIRClient(
+                base_url=settings.FHIR_BASE_URL,
+                api_key=settings.EHR_API_KEY or "",
+            )
+            fhir_obs = FHIRObservation(
+                patient_id=patient_id,
+                wound_id=wound_id,
+                scan_id=scan.id,
+                measurements={
+                    "length_cm": analysis.measurements.length_cm,
+                    "width_cm": analysis.measurements.width_cm,
+                    "area_cm2": analysis.measurements.area_cm2,
+                },
+                tissue_composition={
+                    "granulation_pct": analysis.tissue.granulation_pct,
+                    "slough_pct": analysis.tissue.slough_pct,
+                    "eschar_pct": analysis.tissue.eschar_pct,
+                },
+                performed_by=scanned_by,
+                performed_at=datetime.utcnow(),
+            )
+            fhir_client.push_observation(fhir_obs)
+        except Exception:
+            logger.exception("FHIR push failed for scan %s", scan.id)
 
     return scan
 
