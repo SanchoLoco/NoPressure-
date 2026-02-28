@@ -8,10 +8,14 @@ from .models.base import Base, engine
 from .models import alert  # Ensure Alert tables are registered
 from .api import patients, wounds, scans, analytics, auth, alerts, admin
 from .core.audit_middleware import AuditMiddleware
+from .seed_demo import seed_demo_data
 
 # Create all database tables
 # NOTE: In production, use Alembic migrations instead of create_all()
 Base.metadata.create_all(bind=engine)
+
+# Seed demo users and sample data (idempotent)
+seed_demo_data()
 
 app = FastAPI(
     title="NoPressure Wound Management API",
